@@ -1,8 +1,9 @@
 # Project Recreation Design — Tab Organizer Dashboard
 
 **Date:** 2026-02-03
-**Status:** Draft — awaiting approval
+**Status:** Approved — 2026-02-03
 **Source artifact:** `tab-organizer/` flat folder (MV3 extension, vanilla JS, no package.json / build / git history)
+**Decisions locked:** AI v1 stays UI-direct fetch (background proxy deferred to v2); live `sync.settings`/`local.collections`/`local.sessions` must survive in-place updates (migration shim + test required)
 
 ## Intent & Why
 
@@ -171,12 +172,15 @@ tab-organizer/
 - `pnpm test` (or `npm test`) passes — existing `core.test.js` + `collections.test.js` (adapted) plus any new unit tests for split modules.
 - Storage compatibility: install old artifact, create one `local.sessions` entry + one `local.collections` entry, load new `dist/` build → both visible, `darkMode` restores via `data-theme="dark"` on reload, no console error; no key rename/migration needed.
 
-## Open Questions for Partner (2 blocking — per builder + reviewer checks)
+## Decisions Locked (from partner 2026-02-03)
 
-1. **AI fetch location:** keep current UI-direct `fetch` to Anthropic (`anthropic-dangerous-direct-browser-access`) for v1, or proxy via `src/background/` now? (Default: keep UI-direct for faithful recreation; v2 moves to background.)
-2. **Live data at risk:** is there live `sync.settings`/`local.collections`/`local.sessions` in the wild that must survive an in-place update, or is this personal-only? (Affects whether we ship a migration shim/test or keep it simple.)
-3. Versioning: keep `2.4.2` or bump to `2.5.0` for new source base? (Default: keep `2.4.2`.)
-4. Pin Node via `.nvmrc` / `.node-version`? (Default: no pin.)
+- **AI fetch location:** UI-direct for v1 (faithful recreation); `src/lib/ai/provider.ts` shaped so v2 background proxy is a one-file swap.
+- **Live data:** must survive updates — `sync.settings`/`local.collections` + legacy `local.sessions` shim + compatibility test required.
+
+## Open Questions (none blocking)
+
+- Versioning: keep `2.4.2` or bump to `2.5.0` for new source base? (Default: keep `2.4.2`.)
+- Pin Node via `.nvmrc` / `.node-version`? (Default: no pin.)
 
 ---
 *Awaiting partner approval before implementation. Next step after approval: `superpowers:writing-plans` → execution plan.*
