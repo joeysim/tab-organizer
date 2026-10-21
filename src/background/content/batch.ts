@@ -1,7 +1,8 @@
 import { BATCH_SIZE } from '../../shared/constants/index.js';
 import { isRestricted } from './policy.js';
 
-// Content extraction function to be injected — must stay self-contained, duplicated from extract.raw.ts
+// Content extraction function to be injected — must stay self-contained
+// shortcut: duplicated from extract.raw.ts — keep in sync; verify-build asserts dist contains extractPageContent, upgrade to single-source build inline when needed
 function extractPageContent(): string {
   const skipTags = new Set([
     'SCRIPT', 'STYLE', 'NOSCRIPT', 'IFRAME', 'SVG',

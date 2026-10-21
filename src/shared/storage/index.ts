@@ -53,9 +53,15 @@ export const Storage = {
   async getContentCache(): Promise<ContentCache> {
     try {
       const result = await chrome.storage.local.get([STORAGE_KEYS.contentCache]);
-      return (
-        ((result as Record<string, unknown>)[STORAGE_KEYS.contentCache] as ContentCache) ?? {}
-      );
+      const cache = ((result as Record<string, unknown>)[STORAGE_KEYS.contentCache] as ContentCache) ?? {};
+      // lazy purge expired entries on read if alarms not yet fired
+      const now = Date.now();
+      let purged = false;
+      for (const [k, v] of Object.entries(cache)) {
+        if (now - (v as { cachedAt: number }).cachedAt > CONTENT_TTL) { delete cache[k]; purged = true; }
+      }
+      if (purged) { try { await chrome.storage.local.set({ [STORAGE_KEYS.contentCache]: cache }); } catch {} }
+      return cache;
     } catch {
       return {};
     }
@@ -74,9 +80,14 @@ export const Storage = {
 
   async getCachedContent(tabId: string | number): Promise<string | null> {
     const cache = await this.getContentCache();
-    const entry = cache[String(tabId)];
+    const key = String(tabId);
+    const entry = cache[key];
     if (!entry) return null;
-    if (Date.now() - entry.cachedAt > CONTENT_TTL) return null;
+    if (Date.now() - entry.cachedAt > CONTENT_TTL) {
+      // lazy purge: remove expired entry so cache doesn't bloat if alarms unavailable
+      try { delete cache[key]; await chrome.storage.local.set({ [STORAGE_KEYS.contentCache]: cache }); } catch {}
+      return null;
+    }
     return entry.content;
   },
 
