@@ -1,0 +1,27 @@
+import { Storage } from '../shared/storage/index.js';
+
+export async function reopenCollection(collectionId: string) {
+  const collection = await Storage.getCollection(collectionId);
+  if (!collection) {
+    throw new Error('Collection not found');
+  }
+
+  const tabIds: number[] = [];
+  for (const tab of collection.tabs) {
+    const newTab = await chrome.tabs.create({ url: tab.url, active: false });
+    tabIds.push(newTab.id!);
+  }
+
+  // Create a group with the collection name
+  if (tabIds.length > 0) {
+    const groupId = await chrome.tabs.group({ tabIds });
+    const colors = ['blue', 'red', 'yellow', 'green', 'pink', 'purple', 'cyan', 'orange'];
+    const randomColor = colors[Math.floor(Math.random() * colors.length)];
+    await chrome.tabGroups.update(groupId, {
+      title: collection.name,
+      color: randomColor as chrome.tabGroups.Color
+    });
+  }
+
+  return { success: true, tabsOpened: collection.tabs.length };
+}
