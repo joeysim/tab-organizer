@@ -14,15 +14,28 @@ chrome.runtime.onMessage.addListener((message: unknown, _sender: unknown, sendRe
   return true; // Keep channel open for async response
 });
 
-// Alarm cleanup: periodic content cache cleanup
-if ((chrome as unknown as { alarms?: typeof chrome.alarms }).alarms) {
+// Alarm cleanup: periodic content cache cleanup (guard alarms existence for test/non-extension envs)
+function setupCleanupAlarm() {
+  const alarms = (chrome as unknown as { alarms?: typeof chrome.alarms }).alarms;
+  if (!alarms) return;
+  alarms.create('cleanup', { periodInMinutes: 60 });
   Storage.cleanupCache();
-  chrome.alarms.create('cleanup', { periodInMinutes: 60 });
+}
+
+if ((chrome as unknown as { alarms?: typeof chrome.alarms }).alarms) {
+  // immediate wiring for current service worker lifetime
+  setupCleanupAlarm();
   chrome.alarms.onAlarm.addListener((alarm: chrome.alarms.Alarm) => {
-    if (alarm.name === 'cleanup') {
-      Storage.cleanupCache();
-    }
+    if (alarm.name === 'cleanup') Storage.cleanupCache();
   });
+}
+
+// Re-establish alarm on extension install/update and on browser startup
+if (chrome.runtime?.onInstalled) {
+  chrome.runtime.onInstalled.addListener(() => setupCleanupAlarm());
+}
+if (chrome.runtime?.onStartup) {
+  chrome.runtime.onStartup.addListener(() => setupCleanupAlarm());
 }
 
 console.log('[TabOrganizer] Tab Organizer Dashboard extension loaded');
