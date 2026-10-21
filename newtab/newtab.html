@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Tab Dashboard</title>
+  <link rel="stylesheet" href="newtab.css">
+</head>
+<body>
+  <div class="app">
+    <!-- Header -->
+    <header class="header">
+      <div class="header-left">
+        <h1 class="logo">Tab Dashboard</h1>
+        <span class="tab-count" id="tabCount">0 tabs</span>
+      </div>
+      <div class="header-center">
+        <div class="search-container">
+          <input type="text" id="searchInput" class="search-input" placeholder="Search tabs...">
+          <span class="search-icon">&#128269;</span>
+        </div>
+      </div>
+      <div class="header-right">
+        <button class="btn btn-icon" id="viewToggle" title="Toggle view">
+          <span class="icon-grid">&#9638;</span>
+        </button>
+        <button class="btn btn-icon" id="settingsBtn" title="Settings">
+          <span>&#9881;</span>
+        </button>
+      </div>
+    </header>
+
+    <!-- Main Content -->
+    <div class="main-container">
+      <!-- Sidebar -->
+      <aside class="sidebar" id="sidebar">
+        <div class="sidebar-section">
+          <h3 class="sidebar-title">Groups</h3>
+          <div class="group-list" id="groupList">
+            <!-- Groups will be rendered here -->
+          </div>
+          <button class="btn btn-secondary btn-small" id="createGroupBtn">+ New Group</button>
+        </div>
+
+        <div class="sidebar-section">
+          <h3 class="sidebar-title">Collections</h3>
+          <div class="collection-list" id="collectionList">
+            <!-- Collections will be rendered here -->
+          </div>
+          <div class="collection-buttons">
+            <button class="btn btn-secondary btn-small" id="saveCollectionBtn">+ New Collection</button>
+            <button class="btn btn-secondary btn-small" id="viewAllCollectionsBtn">View All</button>
+          </div>
+        </div>
+
+        <div class="sidebar-section">
+          <h3 class="sidebar-title">AI Tools</h3>
+          <button class="btn btn-primary" id="aiOrganizeBtn">AI Organize</button>
+        </div>
+      </aside>
+
+      <!-- Tab Grid -->
+      <main class="content">
+        <div class="toolbar">
+          <div class="toolbar-left">
+            <button class="btn btn-small btn-secondary" id="selectAllBtn">Select All</button>
+            <button class="btn btn-small btn-secondary" id="deselectAllBtn">Deselect All</button>
+          </div>
+          <div class="selection-info" id="selectionInfo" style="display: none;">
+            <span id="selectedCount">0 selected</span>
+            <button class="btn btn-small" id="groupSelectedBtn">Group</button>
+            <button class="btn btn-small btn-primary" id="collectionSelectedBtn">Save Collection</button>
+            <button class="btn btn-small btn-secondary" id="addToCollectionBtn">Add to Collection</button>
+            <button class="btn btn-small btn-danger" id="closeSelectedBtn">Close</button>
+          </div>
+        </div>
+        <div class="tab-grid" id="tabGrid">
+          <!-- Tabs will be rendered here -->
+        </div>
+        <div class="empty-state" id="emptyState" style="display: none;">
+          <div class="empty-state-icon">📑</div>
+          <div class="empty-state-title">No tabs found</div>
+          <div class="empty-state-description">
+            Try adjusting your search or open some tabs to get started.
+          </div>
+        </div>
+        <div class="loading" id="loading">
+          <div class="loading-spinner"></div>
+          <p>Loading tabs...</p>
+        </div>
+      </main>
+    </div>
+  </div>
+
+  <!-- Modals -->
+  <div class="modal-overlay" id="modalOverlay">
+    <!-- Group Name Modal -->
+    <div class="modal" id="groupModal" style="display: none;">
+      <div class="modal-header">
+        <h3>Create Group</h3>
+        <button class="modal-close" id="closeGroupModal">&times;</button>
+      </div>
+      <div class="modal-body">
+        <label for="groupName">Group Name</label>
+        <input type="text" id="groupName" class="input" placeholder="Enter group name">
+        <label for="groupColor">Color</label>
+        <div class="color-picker" id="colorPicker">
+          <button class="color-btn" data-color="grey" style="background: #5f6368;"></button>
+          <button class="color-btn" data-color="blue" style="background: #1a73e8;"></button>
+          <button class="color-btn" data-color="red" style="background: #d93025;"></button>
+          <button class="color-btn" data-color="yellow" style="background: #f9ab00;"></button>
+          <button class="color-btn" data-color="green" style="background: #1e8e3e;"></button>
+          <button class="color-btn" data-color="pink" style="background: #d01884;"></button>
+          <button class="color-btn" data-color="purple" style="background: #a142f4;"></button>
+          <button class="color-btn" data-color="cyan" style="background: #007b83;"></button>
+          <button class="color-btn selected" data-color="orange" style="background: #e8710a;"></button>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" id="cancelGroupBtn">Cancel</button>
+        <button class="btn btn-primary" id="confirmGroupBtn">Create</button>
+      </div>
+    </div>
+
+    <!-- Collection Modal -->
+    <div class="modal" id="collectionModal" style="display: none;">
+      <div class="modal-header">
+        <h3>Save Collection</h3>
+        <button class="modal-close" id="closeCollectionModal">&times;</button>
+      </div>
+      <div class="modal-body">
+        <label for="collectionName">Collection Name</label>
+        <input type="text" id="collectionName" class="input" placeholder="e.g., Research on AI Tools">
+        <label for="collectionDescription">Description (optional)</label>
+        <textarea id="collectionDescription" class="input textarea" placeholder="Brief description of this collection..." rows="3"></textarea>
+        <p class="help-text" id="collectionTabCount">0 tabs selected</p>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" id="cancelCollectionBtn">Cancel</button>
+        <button class="btn btn-primary" id="confirmCollectionBtn">Save Collection</button>
+      </div>
+    </div>
+
+    <!-- View Collection Modal -->
+    <div class="modal modal-large" id="viewCollectionModal" style="display: none;">
+      <div class="modal-header">
+        <h3 id="viewCollectionTitle">Collection</h3>
+        <button class="modal-close" id="closeViewCollectionModal">&times;</button>
+      </div>
+      <div class="modal-body">
+        <p id="viewCollectionDescription" class="collection-description"></p>
+        <div class="collection-actions">
+          <button class="btn btn-small btn-secondary" id="addLinkBtn">+ Add Link</button>
+          <button class="btn btn-small btn-secondary" id="copyCollectionBtn">Copy to Clipboard</button>
+          <button class="btn btn-small btn-secondary" id="downloadCollectionBtn">Download Markdown</button>
+          <button class="btn btn-small btn-primary" id="reopenCollectionBtn">Reopen All Tabs</button>
+        </div>
+        <div class="add-link-form" id="addLinkForm" style="display: none;">
+          <div class="add-link-inputs">
+            <input type="text" id="addLinkUrl" class="input" placeholder="https://example.com">
+            <input type="text" id="addLinkTitle" class="input" placeholder="Link title (optional)">
+          </div>
+          <div class="add-link-actions">
+            <button class="btn btn-small btn-secondary" id="cancelAddLinkBtn">Cancel</button>
+            <button class="btn btn-small btn-primary" id="confirmAddLinkBtn">Add</button>
+          </div>
+        </div>
+        <div class="collection-tabs" id="viewCollectionTabs">
+          <!-- Collection tabs will be rendered here -->
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-danger btn-small" id="deleteCollectionBtn">Delete Collection</button>
+        <button class="btn btn-secondary" id="closeViewCollectionBtn">Close</button>
+      </div>
+    </div>
+
+    <!-- View All Collections Modal -->
+    <div class="modal modal-large" id="viewAllCollectionsModal" style="display: none;">
+      <div class="modal-header">
+        <h3>All Collections</h3>
+        <button class="modal-close" id="closeViewAllCollectionsModal">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div class="collection-actions">
+          <button class="btn btn-small btn-secondary" id="copyAllCollectionsBtn">Copy All to Clipboard</button>
+          <button class="btn btn-small btn-secondary" id="downloadAllCollectionsBtn">Download All as Markdown</button>
+        </div>
+        <div class="all-collections-list" id="allCollectionsList">
+          <!-- All collections will be rendered here -->
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" id="closeViewAllCollectionsBtn">Close</button>
+      </div>
+    </div>
+
+    <!-- Add to Collection Modal -->
+    <div class="modal" id="addToCollectionModal" style="display: none;">
+      <div class="modal-header">
+        <h3>Add to Collection</h3>
+        <button class="modal-close" id="closeAddToCollectionModal">&times;</button>
+      </div>
+      <div class="modal-body">
+        <p class="add-to-collection-info" id="addToCollectionInfo">0 tabs selected</p>
+        <div class="collection-select-list" id="collectionSelectList">
+          <!-- Collections will be rendered here -->
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" id="cancelAddToCollectionBtn">Cancel</button>
+      </div>
+    </div>
+
+    <!-- Settings Modal -->
+    <div class="modal" id="settingsModal" style="display: none;">
+      <div class="modal-header">
+        <h3>Settings</h3>
+        <button class="modal-close" id="closeSettingsModal">&times;</button>
+      </div>
+      <div class="modal-body">
+        <label for="apiKey">Claude API Key</label>
+        <input type="password" id="apiKey" class="input" placeholder="sk-ant-...">
+        <p class="help-text">Required for AI-powered organization features</p>
+
+        <label class="checkbox-label">
+          <input type="checkbox" id="darkModeToggle">
+          <span>Dark Mode</span>
+        </label>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" id="cancelSettingsBtn">Cancel</button>
+        <button class="btn btn-primary" id="saveSettingsBtn">Save</button>
+      </div>
+    </div>
+
+    <!-- AI Preview Modal -->
+    <div class="modal modal-large" id="aiPreviewModal" style="display: none;">
+      <div class="modal-header">
+        <h3>AI Organization Preview</h3>
+        <button class="modal-close" id="closeAiPreviewModal">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div id="aiPreviewContent">
+          <!-- AI suggestions will be rendered here -->
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" id="cancelAiBtn">Cancel</button>
+        <button class="btn btn-primary" id="applyAiBtn">Apply Changes</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="../lib/storage.js"></script>
+  <script src="../lib/search.js"></script>
+  <script src="../lib/sessions.js"></script>
+  <script src="../lib/ai.js"></script>
+  <script src="newtab.js"></script>
+</body>
+</html>
