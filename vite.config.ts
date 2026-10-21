@@ -1,5 +1,5 @@
 import { defineConfig } from 'vite';
-import { copyFileSync, existsSync, mkdirSync, readdirSync, statSync, unlinkSync, readFileSync } from 'fs';
+import { copyFileSync, existsSync, mkdirSync, readdirSync, statSync, unlinkSync } from 'fs';
 import { join } from 'path';
 
 function copyDir(src: string, dest: string) {
