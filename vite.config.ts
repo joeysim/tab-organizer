@@ -12,62 +12,24 @@ function copyDir(src: string, dest: string) {
     else copyFileSync(s, d);
   }
 }
+function ensureDist() { mkdirSync('dist', { recursive: true }); }
 
 export default defineConfig({
   build: {
     outDir: 'dist',
     emptyOutDir: true,
-    rollupOptions: {
-      input: 'src/_dummy.js',
-      output: {
-        entryFileNames: '_dummy.js',
-        assetFileNames: '_dummy.[ext]',
-      },
-    },
+    lib: { entry: 'src/background/index.js', formats: ['es'], fileName: () => '_tmp.js' },
   },
-  plugins: [
-    {
-      name: 'static-copy',
-      closeBundle() {
-        // shortcut: plain copy preserves service_worker path at dist root, upgrade to @crxjs only if background HMR needed
-
-        if (existsSync('src/manifest.json')) {
-          mkdirSync('dist', { recursive: true });
-          copyFileSync('src/manifest.json', 'dist/manifest.json');
-        }
-
-        if (existsSync('src/background.js')) {
-          mkdirSync('dist', { recursive: true });
-          copyFileSync('src/background.js', 'dist/background.js');
-        } else if (existsSync('src/background/index.js')) {
-          mkdirSync('dist', { recursive: true });
-          copyFileSync('src/background/index.js', 'dist/background.js');
-        } else if (existsSync('src/background/index.ts')) {
-          mkdirSync('dist', { recursive: true });
-          copyFileSync('src/background/index.ts', 'dist/background.js');
-        } else if (existsSync('src/background')) {
-          const stat = statSync('src/background');
-          if (!stat.isDirectory()) {
-            mkdirSync('dist', { recursive: true });
-            copyFileSync('src/background', 'dist/background.js');
-          }
-        }
-
-        if (existsSync('src/newtab')) {
-          copyDir('src/newtab', 'dist/newtab');
-        }
-
-        if (existsSync('public/icons')) {
-          copyDir('public/icons', 'dist/icons');
-        } else if (existsSync('icons')) {
-          copyDir('icons', 'dist/icons');
-        }
-
-        // clean vite dummy output
-        for (const f of ['dist/_dummy.js', 'dist/_dummy.css']) {
-          if (existsSync(f)) unlinkSync(f);
-        }
-      },
+  plugins: [{
+    name: 'static-copy',
+    closeBundle() {
+      // shortcut: plain copy preserves service_worker path at dist root, upgrade to @crxjs only if background HMR needed
+      if (existsSync('src/manifest.json')) { ensureDist(); copyFileSync('src/manifest.json', 'dist/manifest.json'); }
+      if (existsSync('src/background/index.js')) { ensureDist(); copyFileSync('src/background/index.js', 'dist/background.js'); }
+      if (existsSync('src/newtab')) copyDir('src/newtab', 'dist/newtab');
+      if (existsSync('public/icons')) copyDir('public/icons', 'dist/icons');
+      else if (existsSync('icons')) copyDir('icons', 'dist/icons');
+      for (const f of ['dist/_tmp.js']) if (existsSync(f)) unlinkSync(f);
     },
-  ],
+  }],
 });
