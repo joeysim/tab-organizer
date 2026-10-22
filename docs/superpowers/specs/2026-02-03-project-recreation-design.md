@@ -35,6 +35,7 @@ Why now: this artifact is intended as the base for future iterations, starting w
 
 ## Constraints & Current State
 
+- **Ground truth (per repo inspection):** authoritative artifact is repo root — `manifest.json`, `background.js`, `lib/`, `newtab/`, `icons/*.png` (plus `tests/`), all committed. `README.md` is newly added doc, `.DS_Store` is ignored noise. No hidden `dist/`, zip, or alternate build output exists — verification is behavior equivalence, not file-name diff.
 - MV3 extension: `manifest.json` v3, service_worker `background.js`, action opening `newtab/newtab.html`, permissions `tabs`, `tabGroups`, `scripting`, `storage`, host `<all_urls>`.
 - Vanilla JS globals: `Storage`, `Search`, `CollectionManager`/`SessionManager`, `AI` exposed on window; `newtab.js` holds all app state + rendering + events (~1500 LOC).
 - Content extraction via `chrome.scripting.executeScript(extractPageContent)` with tag/selector skip list, depth cap 30, ~50 KB truncation, batched 5 concurrent, 1 h TTL cache.
@@ -51,7 +52,7 @@ Why now: this artifact is intended as the base for future iterations, starting w
 
 ### Toolchain (minimal)
 
-- Package manager: `pnpm` (fallback `npm` works) + `package.json` with scripts: `dev`, `build`, `package`, `test`, `lint`, `typecheck`.
+- Package manager: `pnpm` canonical with `pnpm-lock.yaml`; `npm` fallback works but docs/scripts use `pnpm` (builder call — keeps install/build verification unambiguous).
 - Build: `vite` + `@crxjs/vite-plugin` or plain `vite` with static `public/manifest.json` copy — whichever keeps manifest handling simplest; no SSR, no framework plugin.
 - Language: TypeScript with `allowJs` initially so existing JS can be moved without rewrite; new AI/core code in TS, incremental typing.
 - Quality: `eslint` + `prettier` (or `biome`) with a tiny shared config, `vitest` for unit tests (compatible with existing Node harness), `tsconfig.json` with strict-lite settings.
@@ -127,11 +128,18 @@ tab-organizer/
 - `dev`: vite watch to `dist/`, Load Unpacked `dist/` in `chrome://extensions`.
 - `build`: production minify to `dist/`.
 - `package`: zip `dist/` to `release/tab-organizer-<version>.zip`.
-- Preserve current `manifest.json` fields exactly in first pass; version bump only via manifest.
+- Preserve current `manifest.json` fields **and output paths** exactly in first pass (builder call — use plain vite static-copy for manifest so `background.service_worker: "background.js"` and `icons/icon*.png` stay at `dist/` root; avoid `@crxjs` manifest transform for v1). Version bump only via manifest.
+- **Injection constraint (builder call):** `extractPageContent` passed to `chrome.scripting.executeScript({ func })` must remain a self-contained serializable function with no module-scope closure — keep it as an isolated IIFE/inline string or dedicated chunk that imports nothing; do not bundle it through the normal module graph.
+
+## Builder Calls Made (from review)
+
+- Ground truth is repo root files above; `.DS_Store` ignored; no hidden dist to preserve.
+- `dist/` layout identical to current (`background.js` at root, `newtab/newtab.html`, `icons/` at root) — plain vite copy, not `@crxjs` transform.
+- `extractPageContent` stays self-contained/serializable for `scripting.executeScript`.
+- Package manager canonical is `pnpm`.
 
 ## What’s Left to Builder
 
-- Exact vite plugin choice (`@crxjs/vite-plugin` vs plain copy) — pick simplest that preserves MV3 service_worker + HMR.
 - Whether to split `newtab.css`/`main.ts` in one go or incrementally (prefer incremental; builder may choose).
 - Lint/format tool choice (`eslint+prettier` vs `biome`) — either is fine if minimal.
 - Test runner wiring (keep existing Node harness working via `npm test` while adding `vitest` for new TS modules).
