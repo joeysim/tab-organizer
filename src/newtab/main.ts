@@ -115,12 +115,13 @@ function setupLiveUpdates(): void {
 }
 
 function detectSystemTheme(): void {
-  if (state.settings.darkMode !== undefined) return;
+  if (state.hasExplicitThemePreference) return;
   try {
     const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
     if (prefersDark) document.documentElement.setAttribute('data-theme', 'dark');
+    else document.documentElement.removeAttribute('data-theme');
     window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', (e) => {
-      if (state.settings.darkMode !== undefined) return;
+      if (state.hasExplicitThemePreference) return;
       if (e.matches) document.documentElement.setAttribute('data-theme', 'dark');
       else document.documentElement.removeAttribute('data-theme');
     });

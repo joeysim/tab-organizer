@@ -14,27 +14,39 @@ function copyDir(src: string, dest: string) {
 }
 function ensureDist() { mkdirSync('dist', { recursive: true }); }
 
-function resolveBackgroundEntry(): string {
-  if (existsSync('src/background/index.ts')) return 'src/background/index.ts';
-  return 'src/background/index.js';
-}
-
 export default defineConfig({
   build: {
     outDir: 'dist',
     emptyOutDir: true,
     minify: false,
-    lib: { entry: resolveBackgroundEntry(), formats: ['es'], fileName: () => 'background.js' },
+    rollupOptions: {
+      input: {
+        background: 'src/background/index.ts',
+        newtab: 'src/newtab/index.html',
+      },
+    },
   },
   plugins: [{
     name: 'static-copy',
     closeBundle() {
       // shortcut: plain copy preserves service_worker path at dist root, upgrade to @crxjs only if background HMR needed
       if (existsSync('src/manifest.json')) { ensureDist(); copyFileSync('src/manifest.json', 'dist/manifest.json'); }
-      if (existsSync('src/newtab')) copyDir('src/newtab', 'dist/newtab');
+      // vite html entry src/newtab/index.html emits to dist/src/newtab/index.html — move to canonical dist/newtab/index.html
+      if (existsSync('dist/src/newtab/index.html')) {
+        try { mkdirSync('dist/newtab', { recursive: true }); copyFileSync('dist/src/newtab/index.html', 'dist/newtab/index.html'); } catch {}
+      }
+      // legacy fallback
+      if (existsSync('src/newtab/newtab.html') && !existsSync('dist/newtab/newtab.html')) {
+        try { ensureDist(); mkdirSync('dist/newtab', { recursive: true }); copyFileSync('src/newtab/newtab.html', 'dist/newtab/newtab.html'); } catch {}
+      }
       if (existsSync('public/icons')) copyDir('public/icons', 'dist/icons');
       else if (existsSync('icons')) copyDir('icons', 'dist/icons');
-      for (const f of ['dist/_tmp.js']) if (existsSync(f)) unlinkSync(f);
+      // normalize background output from rollup (assets/background-*.js + background-*.js) to background.js at root per manifest
+      for (const f of readdirSync('dist').filter(f => f.startsWith('background') && f.endsWith('.js'))) {
+        try { unlinkSync(join('dist', f)); } catch {}
+      }
+      const bgBuilt = readdirSync('dist/assets').find(f => f.startsWith('background') && f.endsWith('.js'));
+      if (bgBuilt) { copyFileSync(join('dist/assets', bgBuilt), 'dist/background.js'); }
     },
   }],
 });
