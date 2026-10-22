@@ -92,25 +92,25 @@
 
   <!-- Modals -->
   <div class="modal-overlay" id="modalOverlay">
-    <div class="modal" id="groupModal" style="display: none;">
+    <div class="modal" id="groupModal" style="display: none;" role="dialog" aria-modal="true" aria-labelledby="groupModalTitle">
       <div class="modal-header">
-        <h3>Create Group</h3>
-        <button class="modal-close" id="closeGroupModal">&times;</button>
+        <h3 id="groupModalTitle">Create Group</h3>
+        <button class="modal-close" id="closeGroupModal" aria-label="Close">&times;</button>
       </div>
       <div class="modal-body">
         <label for="groupName">Group Name</label>
         <input type="text" id="groupName" class="input" placeholder="Enter group name">
         <label for="groupColor">Color</label>
         <div class="color-picker" id="colorPicker">
-          <button class="color-btn" data-color="grey" style="background: #5f6368;"></button>
-          <button class="color-btn" data-color="blue" style="background: #1a73e8;"></button>
-          <button class="color-btn" data-color="red" style="background: #d93025;"></button>
-          <button class="color-btn" data-color="yellow" style="background: #f9ab00;"></button>
-          <button class="color-btn" data-color="green" style="background: #1e8e3e;"></button>
-          <button class="color-btn" data-color="pink" style="background: #d01884;"></button>
-          <button class="color-btn" data-color="purple" style="background: #a142f4;"></button>
-          <button class="color-btn" data-color="cyan" style="background: #007b83;"></button>
-          <button class="color-btn selected" data-color="orange" style="background: #e8710a;"></button>
+          <button class="color-btn" data-color="grey" style="background: #5f6368;" aria-label="Grey" aria-pressed="false"></button>
+          <button class="color-btn" data-color="blue" style="background: #1a73e8;" aria-label="Blue" aria-pressed="false"></button>
+          <button class="color-btn" data-color="red" style="background: #d93025;" aria-label="Red" aria-pressed="false"></button>
+          <button class="color-btn" data-color="yellow" style="background: #f9ab00;" aria-label="Yellow" aria-pressed="false"></button>
+          <button class="color-btn" data-color="green" style="background: #1e8e3e;" aria-label="Green" aria-pressed="false"></button>
+          <button class="color-btn" data-color="pink" style="background: #d01884;" aria-label="Pink" aria-pressed="false"></button>
+          <button class="color-btn" data-color="purple" style="background: #a142f4;" aria-label="Purple" aria-pressed="false"></button>
+          <button class="color-btn" data-color="cyan" style="background: #007b83;" aria-label="Cyan" aria-pressed="false"></button>
+          <button class="color-btn selected" data-color="orange" style="background: #e8710a;" aria-label="Orange" aria-pressed="true"></button>
         </div>
       </div>
       <div class="modal-footer">
