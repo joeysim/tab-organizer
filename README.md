@@ -1,6 +1,6 @@
 # Tab Organizer Dashboard
 
-![Screenshot](docs/screenshot.png)
+![Screencast](docs/screencast.gif)
 
 AI-powered Chrome extension that helps you tame tab sprawl — search, group, save, and restore tabs from a single dashboard.
 
