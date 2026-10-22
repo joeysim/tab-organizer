@@ -68,8 +68,9 @@ tab-organizer/
 │   │   ├── router.ts            # message action router
 │   │   ├── tabs.ts              # listAllTabs, groups map
 │   │   ├── groups.ts            # create/move/ungroup/update/delete
+│   │   ├── collections.ts       # privileged reopenCollection (chrome.tabs.create/group) — UI calls via sendMessage
 │   │   └── content/
-│   │       ├── extract.ts       # extractPageContent (injected fn)
+│   │       ├── extract.raw.ts   # extractPageContent as isolated serializable fn (no imports, no bundling) — shortcut: plain copy preserves injection, upgrade to dedicated chunk + build assert if needed
 │   │       ├── policy.ts        # restricted URL check
 │   │       └── batch.ts         # getAllTabsContent batching
 │   ├── shared/
@@ -80,10 +81,10 @@ tab-organizer/
 │   │   ├── search/              # Search.scoring + content search
 │   │   ├── ai/
 │   │   │   ├── provider.ts      # Provider interface (Claude today)
-│   │   │   ├── claude.ts        # Claude implementation
+│   │   │   ├── claude.ts        # Claude implementation (UI-direct fetch preserved for v1; background proxy deferred)
 │   │   │   ├── prompts/         # prompt builders (organize, etc.)
 │   │   │   └── categorize.ts    # quickCategorize fallback
-│   │   └── collections/         # CollectionManager (was sessions.js)
+│   │   └── collections/         # CollectionManager storage + markdown only (no chrome.tabs calls)
 │   └── newtab/
 │       ├── index.html           # entry HTML
 │       ├── main.ts              # app bootstrap
@@ -118,10 +119,20 @@ tab-organizer/
 
 ### Module Boundaries
 
-- **Privileged boundary:** only `src/background/**` talks to `chrome.tabs`/`tabGroups`/`scripting`; UI never calls Chrome tabs directly — it goes through `chrome.runtime.sendMessage` router with typed actions.
-- **Storage boundary:** only `src/shared/storage` touches `chrome.storage`; collections, settings, and content cache go through it, preserving key names.
-- **AI boundary:** `src/lib/ai/provider.ts` defines a tiny interface (`organizeTabs(tabs): Promise<Groups>`, later `analyzeLinks`, `summarizeCollection`, etc.); `claude.ts` implements it; prompts live in `prompts/`; fallback stays provider-agnostic. Adding a provider or prompt does not touch background or UI.
+- **Privileged boundary:** only `src/background/**` talks to `chrome.tabs`/`tabGroups`/`scripting`; UI never calls Chrome tabs directly — it goes through `chrome.runtime.sendMessage` router with typed actions. `reopenCollection` (needs `tabs.create`/`tabs.group`) lives in `src/background/collections.ts`, not in `lib/`.
+- **Storage boundary:** only `src/shared/storage` touches `chrome.storage`; collections, settings, and content cache go through it, preserving key names. `src/lib/collections` is storage + markdown helpers only.
+- **AI boundary:** `src/lib/ai/provider.ts` defines a tiny interface (`organizeTabs(tabs): Promise<Groups>`, later `analyzeLinks`, `summarizeCollection`, etc.); `claude.ts` implements it; prompts live in `prompts/`; fallback stays provider-agnostic. Adding a provider or prompt does not touch background or UI. v1 keeps current UI-direct fetch + `sync.settings` key (faithful recreation); v2 will proxy via background to keep key out of DOM — documented in Security below.
 - **UI boundary:** `src/newtab/app/*` is pure rendering/state over data from background + lib; no Chrome API calls inside renderers.
+
+### Security & Privacy (new — per review)
+
+- Key at rest: `sync.settings.apiKey` preserved for v1 (syncs via Google account); known trade-off — visible to devtools/injected scripts in newtab context. No new permissions/hosts this pass; `<all_urls>` remains for content extraction only.
+- v2 plan: move provider `fetch` to `src/background/` and never expose key to UI; no API change for consumers of `provider.ts`.
+- Content extraction remains opt-in per user action (search with content); no background scraping.
+
+### Cache Maintenance (new — per review)
+
+- `Storage.cleanupCache()` exists but was never scheduled — will add startup + periodic cleanup: `chrome.alarms.create('cleanup', { periodInMinutes: 60 })` in background `onInstalled`/`onStartup`, plus lazy orphan-key purge on `getContentCache()` read. Prevents `local` quota bloat (5–10 MB) from cached page content.
 
 ### Build & Dev
 
@@ -134,9 +145,16 @@ tab-organizer/
 ## Builder Calls Made (from review)
 
 - Ground truth is repo root files above; `.DS_Store` ignored; no hidden dist to preserve.
-- `dist/` layout identical to current (`background.js` at root, `newtab/newtab.html`, `icons/` at root) — plain vite copy, not `@crxjs` transform.
-- `extractPageContent` stays self-contained/serializable for `scripting.executeScript`.
-- Package manager canonical is `pnpm`.
+- `dist/` layout identical to current (`background.js` at root, `newtab/newtab.html`, `icons/` at root) — plain vite copy, not `@crxjs` transform; `vite.config.ts` will comment: `shortcut: plain copy preserves service_worker path, upgrade to @crxjs only if HMR for background needed`.
+- `extractPageContent` stays self-contained/serializable for `scripting.executeScript`; file is `extract.raw.ts` excluded from bundle with a build-time grep assert.
+- Package manager canonical is `pnpm`; `README` fallback phrasing corrected to match actual code (settings prompt, not auto-fallback).
+- `reopenCollection` privileged split: storage helpers in `lib/collections`, chrome calls in `background/collections.ts`.
+- Security trade-off documented: `sync` key exposure preserved for v1, background proxy planned for v2.
+- Cache eviction: alarm + lazy purge prevents `local` quota bloat.
+
+## Review Notes
+
+- Reviewer: strengths — accurate ground truth, minimal reversible toolchain, behavior-equivalence priority, 95% README accuracy; declined to judge — cross-browser, backend, store publish, framework migration, new AI features, filename diff, lint choice, strictness (all Non-Goals/builder calls). Fixed Critical: `.gitignore` + injection isolation. Addressed Important: README fallback, collections boundary, security note, cache scheduling, storage verification.
 
 ## What’s Left to Builder
 
@@ -148,16 +166,17 @@ tab-organizer/
 
 ## Verification
 
-- `pnpm install && pnpm build` produces `dist/` loadable as unpacked extension.
-- Manual smoke: open dashboard, search, create group, recolor group, filter, select → group/collection, save/reopen collection, Markdown export, AI organize (with and without key), dark mode, keyboard nav, drag tab to group/collection.
+- `pnpm install && pnpm build` produces `dist/` loadable as unpacked extension; contract assert: `dist/manifest.json` fields equal source, `dist/background.js` at root contains `function extractPageContent` without bundled imports, `dist/newtab/newtab.html` loads.
+- Manual smoke: open dashboard, search, create group, recolor group, filter, select → group/collection, save/reopen collection, Markdown export, AI organize (with and without key — expects settings prompt, not auto-fallback), dark mode, keyboard nav, drag tab to group/collection.
 - `pnpm test` (or `npm test`) passes — existing `core.test.js` + `collections.test.js` (adapted) plus any new unit tests for split modules.
-- No storage migration needed; loading the new build over an existing install retains settings/collections.
+- Storage compatibility: install old artifact, create one `local.sessions` entry + one `local.collections` entry, load new `dist/` build → both visible, `darkMode` restores via `data-theme="dark"` on reload, no console error; no key rename/migration needed.
 
-## Open Questions for Partner (none blocking)
+## Open Questions for Partner (2 blocking — per builder + reviewer checks)
 
-- Versioning: keep `2.4.2` for first rebuilt artifact or bump to `2.5.0` to signal new source base? (Default: keep `2.4.2`.)
-- Do you want `.nvmrc` / `.node-version` pinned, or no Node pinning?
-- Any need to preserve the exact built-file names for diffing, or is behavior equivalence sufficient?
+1. **AI fetch location:** keep current UI-direct `fetch` to Anthropic (`anthropic-dangerous-direct-browser-access`) for v1, or proxy via `src/background/` now? (Default: keep UI-direct for faithful recreation; v2 moves to background.)
+2. **Live data at risk:** is there live `sync.settings`/`local.collections`/`local.sessions` in the wild that must survive an in-place update, or is this personal-only? (Affects whether we ship a migration shim/test or keep it simple.)
+3. Versioning: keep `2.4.2` or bump to `2.5.0` for new source base? (Default: keep `2.4.2`.)
+4. Pin Node via `.nvmrc` / `.node-version`? (Default: no pin.)
 
 ---
 *Awaiting partner approval before implementation. Next step after approval: `superpowers:writing-plans` → execution plan.*

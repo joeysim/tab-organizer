@@ -8,7 +8,7 @@ AI-powered Chrome extension that helps you tame tab sprawl — search, group, sa
 - **Search** — full-text search scored by title, URL, domain, group name, and cached page content.
 - **Tab Groups** — create colour-coded Chrome tab groups, re-colour them, filter the grid by group or pinned tabs, and drag tabs between groups/collections.
 - **Collections** — save any selection of tabs as a named collection (URL + title only), reopen or export them later. Add links manually, export to Markdown, or copy to clipboard.
-- **AI Organize** — describe your tabs to Claude (Sonnet 4) and apply suggested groupings in one click; falls back to regex-based `quickCategorize` without an API key.
+- **AI Organize** — describe your tabs to Claude (Sonnet 4) and apply suggested groupings in one click; without a key the button prompts for Settings — `AI.quickCategorize(tabs)` is available programmatically as a heuristic fallback.
 - **Dark mode & keyboard shortcuts** — `j`/`k` navigation, `/` to search, `Space` to select, `Enter` to open, `g`/`c` for quick group/collection.
 
 ## Project Structure
