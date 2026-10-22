@@ -36,7 +36,14 @@ export async function loadSettings(): Promise<void> {
     const stored = await Storage.getSettings();
     if (stored) {
       state.settings = stored;
-      state.hasExplicitThemePreference = stored.darkMode !== undefined;
+      // Detect explicit preference: check raw storage, not default fallback
+      try {
+        const raw = await chrome.storage.sync.get(['settings']) as Record<string, unknown>;
+        const rawSettings = (raw as { settings?: { darkMode?: boolean } }).settings;
+        state.hasExplicitThemePreference = rawSettings?.darkMode !== undefined;
+      } catch {
+        state.hasExplicitThemePreference = stored.darkMode !== undefined;
+      }
       if (state.settings.darkMode) document.documentElement.setAttribute('data-theme', 'dark');
       const aiBtn = document.getElementById('aiOrganizeBtn') as HTMLButtonElement | null;
       if (aiBtn) aiBtn.disabled = !state.settings.apiKey;

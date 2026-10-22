@@ -128,7 +128,10 @@ function detectSystemTheme(): void {
   } catch {}
 }
 
-document.addEventListener('DOMContentLoaded', async () => {
+let initialized = false;
+async function initApp(): Promise<void> {
+  if (initialized) return;
+  initialized = true;
   try {
     await loadSettings();
     await loadTabs();
@@ -148,15 +151,11 @@ document.addEventListener('DOMContentLoaded', async () => {
     `;
     }
   }
-});
-
-// also initialize keyboard+theme if DOM already loaded (for tests / early readyState)
-if (document.readyState !== 'loading') {
-  // defer to avoid double-init race
-  setTimeout(() => {
-    try {
-      setupKeyboardNavigation();
-      detectSystemTheme();
-    } catch {}
-  }, 0);
 }
+
+document.addEventListener('DOMContentLoaded', () => { void initApp(); });
+if (document.readyState !== 'loading') {
+  void initApp();
+}
+// Debug marker for headless checks
+(window as unknown as Record<string, unknown>).__tabOrganizerInit = initApp;

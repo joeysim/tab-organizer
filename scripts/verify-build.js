@@ -19,7 +19,9 @@ if (!existsSync(distManifestPath)) fail(`missing ${distManifestPath} — run pnp
 const srcManifest = JSON.parse(readFileSync(srcManifestPath, 'utf8'));
 const distManifest = JSON.parse(readFileSync(distManifestPath, 'utf8'));
 
-const fieldsToCheck = ['manifest_version', 'name', 'version', 'permissions', 'host_permissions', 'background', 'action', 'icons'];
+const fieldsToCheck = ['manifest_version', 'name', 'permissions', 'host_permissions', 'background', 'action', 'icons'];
+// version: dist may have dev suffix (2.4.2.<build> + version_name), src is base semver — allow prefix match
+if (!distManifest.version.startsWith(srcManifest.version)) fail(`manifest version mismatch: src=${srcManifest.version} dist=${distManifest.version}`);
 for (const field of fieldsToCheck) {
   const srcVal = JSON.stringify(srcManifest[field]);
   const distVal = JSON.stringify(distManifest[field]);
