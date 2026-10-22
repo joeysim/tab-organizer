@@ -32,6 +32,9 @@ function createMockChrome(
         set: vi.fn(async (data: Record<string, unknown>) => {
           Object.assign(localData, data);
         }),
+        remove: vi.fn(async (keys: string | string[]) => {
+          for (const k of Array.isArray(keys) ? keys : [keys]) delete localData[k];
+        }),
       },
       sync: {
         _data: syncData,
@@ -199,6 +202,22 @@ describe('storage', () => {
     await Storage.saveSettings({ apiKey: 'sk-test-123', darkMode: true });
     const saved = await Storage.getSettings();
     expect(saved).toEqual({ apiKey: 'sk-test-123', darkMode: true });
+  });
+
+  test('deleting all collections does not resurrect legacy sessions', async () => {
+    const legacySessions = [{ id: 'sess_1', title: 'Legacy', tabs: [{ url: 'https://example.com', title: 'Example' }] }];
+    const { mock, localData } = createMockChrome({ sessions: legacySessions });
+    installChrome(mock);
+    vi.resetModules();
+    const { Storage } = await import('../src/shared/storage/index.js');
+    // first read migrates
+    const first = await Storage.getCollections();
+    expect(first).toHaveLength(1);
+    // simulate delete all
+    await Storage.saveCollections([]);
+    const afterDelete = await Storage.getCollections();
+    expect(afterDelete).toHaveLength(0);
+    expect(localData).not.toHaveProperty('sessions');
   });
 
   test('constants GROUP_COLORS includes grey and pinned values are correct', async () => {

@@ -25,12 +25,16 @@ export const Storage = {
   async getCollections(): Promise<Collection[]> {
     try {
       const result = await chrome.storage.local.get([STORAGE_KEYS.collections]);
-      const collections = (result as Record<string, unknown>)[STORAGE_KEYS.collections] as
-        | Collection[]
-        | undefined;
-      if (Array.isArray(collections) && collections.length > 0) return collections;
-      // legacy shim: read local.sessions when local.collections empty
-      return await getLegacyCollections();
+      if (STORAGE_KEYS.collections in result) {
+        const collections = (result as Record<string, unknown>)[STORAGE_KEYS.collections] as Collection[] | undefined;
+        if (Array.isArray(collections)) return collections; // empty array means user deleted all — don't fallback
+      }
+      // legacy shim: migrate once if collections key missing
+      const legacy = await getLegacyCollections();
+      if (legacy.length > 0) {
+        try { await chrome.storage.local.set({ [STORAGE_KEYS.collections]: legacy }); await chrome.storage.local.remove([STORAGE_KEYS.legacySessions]); } catch {}
+      }
+      return legacy;
     } catch {
       return [];
     }
