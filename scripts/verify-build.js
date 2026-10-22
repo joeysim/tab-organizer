@@ -39,11 +39,9 @@ if (/^import\s+.*from\s+['"].*extract/m.test(bgContent)) fail('dist/background.j
 if (/^import\s+.*extract/m.test(bgContent)) fail('dist/background.js contains import leak for extract');
 ok('dist/background.js exists at root with bundled extractPageContent and no import leak');
 
-// 3. dist/newtab/index.html exists
-const newtabPath = 'dist/newtab/index.html';
-if (!existsSync(newtabPath)) fail(`missing ${newtabPath}`);
-const newtabContent = readFileSync(newtabPath, 'utf8');
-if (!newtabContent.includes('<html')) fail('dist/newtab/index.html does not look like HTML');
-ok('dist/newtab/index.html exists');
+// 3. dist/newtab files exist (global constraint: newtab/newtab.html)
+for (const p of ['dist/newtab/index.html', 'dist/newtab/newtab.html']) { if (!existsSync(p)) fail(`missing ${p}`); const c = readFileSync(p, 'utf8'); if (!c.includes('<html')) fail(`${p} does not look like HTML`); ok(`${p} exists`); }
+// 4. dist/icons exist
+for (const icon of ['dist/icons/icon16.png', 'dist/icons/icon48.png', 'dist/icons/icon128.png']) if (!existsSync(icon)) fail(`missing ${icon}`); ok('dist/icons/* exist');
 
 ok('PASS — all build checks passed');
