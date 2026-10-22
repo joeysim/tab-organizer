@@ -15,31 +15,67 @@ AI-powered Chrome extension that helps you tame tab sprawl — search, group, sa
 
 ```
 tab-organizer/
-├── manifest.json       # MV3 manifest (service_worker + action)
-├── background.js       # Service worker — tab/group CRUD, content extraction, message router
-├── lib/
-│   ├── ai.js           # Claude API integration + quickCategorize fallback
-│   ├── search.js       # Scored tab search & cached-content search
-│   ├── sessions.js     # CollectionManager (save/reopen/export collections)
-│   └── storage.js      # chrome.storage wrapper (settings, sessions, content cache)
-├── newtab/
-│   ├── newtab.html     # Dashboard markup (toolbar, sidebar, modals)
-│   ├── newtab.css      # Theming via CSS variables, dark mode, group colours
-│   └── newtab.js       # App state, rendering, drag & drop, modals, keyboard nav
-├── icons/              # Extension icons (16/48/128 px)
-└── tests/
-    ├── test-utils.js
-    ├── core.test.js
-    └── collections.test.js
+├── src/                # Canonical source (MV3 + TypeScript + Vite)
+│   ├── manifest.json   # MV3 manifest (service_worker: background.js)
+│   ├── background/     # Service worker — tabs, groups, content extraction, message router
+│   │   ├── index.ts    # Entry: action.onClicked + runtime.onMessage + alarms cleanup
+│   │   ├── router.ts   # handleMessage action dispatcher
+│   │   ├── tabs.ts     # listAllTabs / getTabGroups (tabGroups mirror)
+│   │   ├── groups.ts   # create/update/delete tab groups
+│   │   ├── collections.ts # reopenCollection (privileged chrome.tabs.create)
+│   │   └── content/    # extractPageContent + batched getAllTabsContent (BATCH_SIZE 5)
+│   ├── newtab/         # Dashboard UI — ESM app with CSS variables + dark mode
+│   │   ├── index.html  # Dashboard markup (toolbar, sidebar, modals)
+│   │   ├── main.ts     # ESM entry: loadSettings → loadTabs → render → live updates
+│   │   ├── newtab.html # Legacy HTML (preserved for reference)
+│   │   ├── newtab.js   # Legacy app shim (window.* globals)
+│   │   ├── app/        # Modular app: state, render, groups, collections, dnd, search, keyboard
+│   │   └── styles/     # newtab.css + variables.css
+│   ├── shared/
+│   │   ├── storage/    # chrome.storage wrapper (settings, collections, contentCache TTL 1h, legacy sessions shim)
+│   │   ├── constants/  # STORAGE_KEYS, GROUP_COLORS, BATCH_SIZE, CONTENT_TTL, CONTENT_LIMIT
+│   │   └── types/      # Tab / TabGroup / Collection / Settings / ContentCache
+│   └── lib/
+│       ├── ai.ts       # Claude API integration + quickCategorize fallback
+│       ├── search.ts   # Scored tab search (title/URL/domain/group/content)
+│       └── collections/ # Collection helpers (save/reopen/export, SessionManager alias)
+├── public/icons/       # Extension icons (16/48/128 px) — copied to dist/icons at build
+├── tests/              # Vitest suites + legacy node harness
+│   ├── compat.test.ts  # Legacy sessions → collections + TTL + darkMode round-trip
+│   ├── storage.test.ts # Storage CRUD + TTL + legacy shim
+│   └── test-utils.js   # Legacy mockChrome harness (no browser required)
+├── scripts/
+│   ├── verify-build.js # Asserts dist/manifest fields == src/manifest, dist/background.js + index.html
+│   └── package-zip.js  # Zips dist/ → release/tab-organizer-<version>.zip
+├── dist/               # Build output (Load Unpacked target) — background.js at root
+├── .archive/           # Previous flat artifact roots retained one release for diff reference
+└── vite.config.ts      # Vite build: lib entry → dist/background.js + static copy of manifest/newtab/icons
 ```
 
-## Install (development)
+`SessionManager` is preserved as an alias of `CollectionManager` for backwards compatibility.
 
-1. Open `chrome://extensions` and enable **Developer mode**.
-2. Click **Load unpacked** and select this folder.
-3. Click the extension icon to open the dashboard, or navigate to the new-tab page it registers.
+## Development
 
-No build step or dependencies — pure vanilla JS + Chrome Extension APIs.
+```bash
+pnpm install          # install deps
+pnpm dev              # Vite watch build → dist/
+pnpm build            # one-shot production build → dist/
+pnpm package          # zip dist/ → release/tab-organizer-<version>.zip
+```
+
+### Load in Chrome
+
+1. Run `pnpm build` (or `pnpm dev` for watch).
+2. Open `chrome://extensions` and enable **Developer mode**.
+3. Click **Load unpacked** and select the `dist/` folder.
+4. Click the extension icon to open the dashboard.
+
+### Testing
+
+```bash
+pnpm test             # Vitest — all suites in tests/*.test.ts + src/**
+npm run test:legacy   # Legacy harness — tests/core.test.js + tests/collections.test.js
+```
 
 ## Usage
 
@@ -78,15 +114,6 @@ No build step or dependencies — pure vanilla JS + Chrome Extension APIs.
 
 - `chrome.storage.sync` — `settings` (`apiKey`, `darkMode`).
 - `chrome.storage.local` — `collections` (array of `{ id, name, description, createdAt, tabs }`), `contentCache` (per-tab `{ content, cachedAt }` with 1 h TTL), legacy `sessions` key.
-
-## Testing
-
-```bash
-node tests/core.test.js
-node tests/collections.test.js
-```
-
-Tests use a `mockChrome` harness in `tests/test-utils.js` — no browser required.
 
 ## Architecture Notes
 
