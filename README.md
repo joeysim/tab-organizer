@@ -1,16 +1,6 @@
 # Tab Organizer Dashboard
 
-https://github.com/user-attachments/assets/demo.mp4 <!-- placeholder, use docs/demo.mp4 -->
-
-<video src="docs/demo.mp4" autoplay loop muted playsinline width="100%" style="border-radius: 8px; border: 1px solid #dadce0;"></video>
-
-![Demo](docs/screencast.gif) <!-- fallback for GitHub -->
-
-<details><summary>Demo script</summary>
-
-See [docs/demo-script.md](docs/demo-script.md) — 30s reel: 10 tabs chaos → search → group → collect, dark mode, no voiceover.
-
-</details>
+![Demo](docs/screencast.gif)
 
 AI-powered Chrome extension that helps you tame tab sprawl — search, group, save, and restore tabs from a single dashboard.
 
