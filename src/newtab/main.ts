@@ -145,10 +145,16 @@ async function initApp(): Promise<void> {
     console.error('Failed to initialize app:', error);
     const loading = document.getElementById('loading');
     if (loading) {
-      loading.innerHTML = `
-      <p style="color: var(--danger-color);">Failed to load: ${(error as Error).message}</p>
-      <button onclick="location.reload()" class="btn btn-primary" style="margin-top: 16px;">Retry</button>
-    `;
+      loading.textContent = '';
+      const p = document.createElement('p');
+      p.style.color = 'var(--danger-color)';
+      p.textContent = `Failed to load: ${(error as Error).message}`;
+      const btn = document.createElement('button');
+      btn.textContent = 'Retry';
+      btn.className = 'btn btn-primary';
+      (btn as HTMLElement).style.marginTop = '16px';
+      btn.addEventListener('click', () => location.reload());
+      loading.append(p, btn);
     }
   }
 }

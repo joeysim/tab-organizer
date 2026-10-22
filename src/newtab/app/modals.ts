@@ -141,8 +141,9 @@ export function setupModalListeners(): void {
     const darkMode = (document.getElementById('darkModeToggle') as HTMLInputElement)?.checked || false;
     const { state } = await import('./state.js');
     const { Storage } = await import('../../shared/storage/index.js');
+    const prevDarkMode = state.settings.darkMode;
     state.settings = { apiKey, darkMode };
-    state.hasExplicitThemePreference = true;
+    if (darkMode !== prevDarkMode) state.hasExplicitThemePreference = true;
     await Storage.saveSettings(state.settings);
     if (darkMode) document.documentElement.setAttribute('data-theme', 'dark');
     else document.documentElement.removeAttribute('data-theme');
