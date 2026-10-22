@@ -1,9 +1,9 @@
 const { readFileSync, existsSync, mkdirSync } = require('fs');
 const { execSync } = require('child_process');
 
-const manifestPath = existsSync('src/manifest.json') ? 'src/manifest.json' : 'manifest.json';
+const manifestPath = existsSync('dist/manifest.json') ? 'dist/manifest.json' : existsSync('src/manifest.json') ? 'src/manifest.json' : 'manifest.json';
 const manifest = JSON.parse(readFileSync(manifestPath, 'utf8'));
-const version = manifest.version || '0.0.0';
+const version = manifest.version_name || manifest.version || '0.0.0';
 
 if (!existsSync('dist/manifest.json')) {
   console.error('dist/ not built — run pnpm build first');

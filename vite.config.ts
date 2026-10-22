@@ -20,10 +20,7 @@ export default defineConfig({
     emptyOutDir: true,
     minify: false,
     rollupOptions: {
-      input: {
-        background: 'src/background/index.ts',
-        newtab: 'src/newtab/index.html',
-      },
+      input: 'src/newtab/index.html',
     },
   },
   plugins: [{
@@ -31,22 +28,23 @@ export default defineConfig({
     closeBundle() {
       // shortcut: plain copy preserves service_worker path at dist root, upgrade to @crxjs only if background HMR needed
       if (existsSync('src/manifest.json')) { ensureDist(); copyFileSync('src/manifest.json', 'dist/manifest.json'); }
-      // vite html entry src/newtab/index.html emits to dist/src/newtab/index.html — move to canonical dist/newtab/index.html
+      // vite html entry src/newtab/index.html emits to dist/src/newtab/index.html — move to canonical dist/newtab/index.html and fix asset paths
       if (existsSync('dist/src/newtab/index.html')) {
-        try { mkdirSync('dist/newtab', { recursive: true }); copyFileSync('dist/src/newtab/index.html', 'dist/newtab/index.html'); } catch {}
+        try {
+          const { readFileSync, writeFileSync } = require('fs');
+          let html = readFileSync('dist/src/newtab/index.html', 'utf8');
+          // fix relative asset paths: from dist/src/newtab (depth 2) to dist/newtab (depth 1)
+          html = html.replaceAll('../../assets/', '../assets/');
+          mkdirSync('dist/newtab', { recursive: true });
+          writeFileSync('dist/newtab/index.html', html);
+        } catch {}
       }
-      // legacy fallback
       if (existsSync('src/newtab/newtab.html') && !existsSync('dist/newtab/newtab.html')) {
-        try { ensureDist(); mkdirSync('dist/newtab', { recursive: true }); copyFileSync('src/newtab/newtab.html', 'dist/newtab/newtab.html'); } catch {}
+        try { mkdirSync('dist/newtab', { recursive: true }); copyFileSync('src/newtab/newtab.html', 'dist/newtab/newtab.html'); } catch {}
       }
       if (existsSync('public/icons')) copyDir('public/icons', 'dist/icons');
       else if (existsSync('icons')) copyDir('icons', 'dist/icons');
-      // normalize background output from rollup (assets/background-*.js + background-*.js) to background.js at root per manifest
-      for (const f of readdirSync('dist').filter(f => f.startsWith('background') && f.endsWith('.js'))) {
-        try { unlinkSync(join('dist', f)); } catch {}
-      }
-      const bgBuilt = readdirSync('dist/assets').find(f => f.startsWith('background') && f.endsWith('.js'));
-      if (bgBuilt) { copyFileSync(join('dist/assets', bgBuilt), 'dist/background.js'); }
+      // background.js is built separately via esbuild (see scripts/build-background.js) — no rollup handling needed
     },
   }],
 });
