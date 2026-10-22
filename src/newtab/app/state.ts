@@ -34,6 +34,7 @@ export type AppState = {
   currentCollection: Collection | null;
   activeGroupFilter: number | 'pinned' | null;
   settings: Settings;
+  hasExplicitThemePreference?: boolean; // true only after user saves Settings
 };
 
 export const state: AppState = {
@@ -47,4 +48,5 @@ export const state: AppState = {
   currentCollection: null,
   activeGroupFilter: null,
   settings: { apiKey: '', darkMode: false },
+  hasExplicitThemePreference: false,
 };

@@ -36,6 +36,7 @@ export async function loadSettings(): Promise<void> {
     const stored = await Storage.getSettings();
     if (stored) {
       state.settings = stored;
+      state.hasExplicitThemePreference = stored.darkMode !== undefined;
       if (state.settings.darkMode) document.documentElement.setAttribute('data-theme', 'dark');
       const aiBtn = document.getElementById('aiOrganizeBtn') as HTMLButtonElement | null;
       if (aiBtn) aiBtn.disabled = !state.settings.apiKey;
