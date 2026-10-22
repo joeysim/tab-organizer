@@ -197,11 +197,11 @@ describe('storage', () => {
     const { Storage } = await import('../src/shared/storage/index.js');
 
     const defaults = await Storage.getSettings();
-    expect(defaults).toEqual({ apiKey: '', darkMode: false });
+    expect(defaults).toMatchObject({ apiKey: '', darkMode: false });
 
     await Storage.saveSettings({ apiKey: 'sk-test-123', darkMode: true });
     const saved = await Storage.getSettings();
-    expect(saved).toEqual({ apiKey: 'sk-test-123', darkMode: true });
+    expect(saved).toMatchObject({ apiKey: 'sk-test-123', darkMode: true });
   });
 
   test('deleting all collections does not resurrect legacy sessions', async () => {

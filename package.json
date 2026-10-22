@@ -7,7 +7,7 @@
   "scripts": {
     "dev": "vite build --watch",
     "build": "vite build && node scripts/build-background.js && node scripts/set-version.js && node scripts/verify-build.js",
-    "build:release": "vite build && node scripts/build-background.js && node scripts/set-version.js --release",
+    "build:release": "vite build && node scripts/build-background.js && node scripts/set-version.js --release && node scripts/verify-build.js",
     "package": "node scripts/package-zip.js",
     "test": "vitest run",
     "test:legacy": "node tests/core.test.js && node tests/collections.test.js",
