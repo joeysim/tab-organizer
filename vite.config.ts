@@ -33,14 +33,12 @@ export default defineConfig({
         try {
           const { readFileSync, writeFileSync } = require('fs');
           let html = readFileSync('dist/src/newtab/index.html', 'utf8');
-          // fix relative asset paths: from dist/src/newtab (depth 2) to dist/newtab (depth 1)
           html = html.replaceAll('../../assets/', '../assets/');
           mkdirSync('dist/newtab', { recursive: true });
           writeFileSync('dist/newtab/index.html', html);
+          // legacy path used by chrome.runtime.getURL('newtab/newtab.html') — keep in sync
+          writeFileSync('dist/newtab/newtab.html', html);
         } catch {}
-      }
-      if (existsSync('src/newtab/newtab.html') && !existsSync('dist/newtab/newtab.html')) {
-        try { mkdirSync('dist/newtab', { recursive: true }); copyFileSync('src/newtab/newtab.html', 'dist/newtab/newtab.html'); } catch {}
       }
       if (existsSync('public/icons')) copyDir('public/icons', 'dist/icons');
       else if (existsSync('icons')) copyDir('icons', 'dist/icons');
