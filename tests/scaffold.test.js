@@ -1,5 +1,5 @@
-import { existsSync, readFileSync } from 'fs';
-import assert from 'assert';
+const { existsSync, readFileSync } = require('fs');
+const assert = require('assert');
 
 assert.ok(existsSync('package.json'), 'package.json exists');
 assert.ok(existsSync('vite.config.ts'), 'vite.config.ts exists');

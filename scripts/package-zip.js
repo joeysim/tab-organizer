@@ -1,6 +1,5 @@
-import { readFileSync, existsSync, mkdirSync } from 'fs';
-import { execSync } from 'child_process';
-import { join } from 'path';
+const { readFileSync, existsSync, mkdirSync } = require('fs');
+const { execSync } = require('child_process');
 
 const manifestPath = existsSync('src/manifest.json') ? 'src/manifest.json' : 'manifest.json';
 const manifest = JSON.parse(readFileSync(manifestPath, 'utf8'));
