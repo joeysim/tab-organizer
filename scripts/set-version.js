@@ -19,9 +19,10 @@ if (isRelease) {
 } else {
   // dev: version stays semver-compatible but unique per build (Chrome needs bump to reload)
   // use base + .0 + hash build count approximated by timestamp mod 65535
-  const buildNum = Math.floor(Date.now() / 1000) % 60000; // fits 0-65535, changes each build
+  // monotonic build number: commit count (never wraps backwards)
+  let buildNum = 1;
+  try { buildNum = parseInt(execSync('git rev-list --count HEAD', { encoding: 'utf8' }).trim(), 10) % 60000 || 1; } catch { buildNum = Math.floor(Date.now() / 1000) % 60000; }
   const parts = baseVersion.split('.').map(Number);
-  // ensure 4 parts max: e.g. 2.4.2 -> 2.4.2.<buildNum>
   manifest.version = [...parts.slice(0, 3), buildNum].join('.');
   manifest.version_name = `${baseVersion}-dev.${hash}${isDirty ? '-dirty' : ''}`;
 }

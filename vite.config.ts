@@ -1,5 +1,5 @@
 import { defineConfig } from 'vite';
-import { copyFileSync, existsSync, mkdirSync, readdirSync, statSync, unlinkSync } from 'fs';
+import { copyFileSync, existsSync, mkdirSync, readdirSync, readFileSync, statSync, unlinkSync, writeFileSync } from 'fs';
 import { join } from 'path';
 
 function copyDir(src: string, dest: string) {
@@ -30,15 +30,11 @@ export default defineConfig({
       if (existsSync('src/manifest.json')) { ensureDist(); copyFileSync('src/manifest.json', 'dist/manifest.json'); }
       // vite html entry src/newtab/index.html emits to dist/src/newtab/index.html — move to canonical dist/newtab/index.html and fix asset paths
       if (existsSync('dist/src/newtab/index.html')) {
-        try {
-          const { readFileSync, writeFileSync } = require('fs');
-          let html = readFileSync('dist/src/newtab/index.html', 'utf8');
-          html = html.replaceAll('../../assets/', '../assets/');
-          mkdirSync('dist/newtab', { recursive: true });
-          writeFileSync('dist/newtab/index.html', html);
-          // legacy path used by chrome.runtime.getURL('newtab/newtab.html') — keep in sync
-          writeFileSync('dist/newtab/newtab.html', html);
-        } catch {}
+        let html = readFileSync('dist/src/newtab/index.html', 'utf8');
+        html = html.replaceAll('../../assets/', '../assets/');
+        mkdirSync('dist/newtab', { recursive: true });
+        writeFileSync('dist/newtab/index.html', html);
+        writeFileSync('dist/newtab/newtab.html', html);
       }
       if (existsSync('public/icons')) copyDir('public/icons', 'dist/icons');
       else if (existsSync('icons')) copyDir('icons', 'dist/icons');

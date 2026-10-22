@@ -1,5 +1,5 @@
-const { readFileSync, existsSync, mkdirSync } = require('fs');
-const { execSync } = require('child_process');
+import { readFileSync, existsSync, mkdirSync } from 'fs';
+import { execSync } from 'child_process';
 
 const manifestPath = existsSync('dist/manifest.json') ? 'dist/manifest.json' : existsSync('src/manifest.json') ? 'src/manifest.json' : 'manifest.json';
 const manifest = JSON.parse(readFileSync(manifestPath, 'utf8'));
@@ -17,6 +17,5 @@ try {
   execSync(`cd dist && zip -r "../${zipName}" . -x "*.DS_Store" -x "src/*"`, { stdio: 'inherit' });
   console.log(`Created ${zipName}`);
 } catch {
-  // fallback: no zip binary, just report
   console.log(`Would create ${zipName} from dist/ (zip not available)`);
 }

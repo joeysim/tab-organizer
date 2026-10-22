@@ -1,11 +1,12 @@
 {
+  "type": "module",
   "name": "tab-organizer",
   "version": "2.4.2",
   "private": true,
   "packageManager": "pnpm@9.12.3",
   "scripts": {
     "dev": "vite build --watch",
-    "build": "vite build && node scripts/build-background.js && node scripts/set-version.js",
+    "build": "vite build && node scripts/build-background.js && node scripts/set-version.js && node scripts/verify-build.js",
     "build:release": "vite build && node scripts/build-background.js && node scripts/set-version.js --release",
     "package": "node scripts/package-zip.js",
     "test": "vitest run",

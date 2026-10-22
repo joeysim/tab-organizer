@@ -28,12 +28,16 @@ export function renderCollections(): void {
     collectionEl.className = 'collection-item';
     collectionEl.dataset.collectionId = collection.id;
 
-    collectionEl.innerHTML = `
-      <div class="collection-info">
-        <div class="collection-name">${collection.name}</div>
-        <div class="collection-count">${collection.tabs.length} links</div>
-      </div>
-    `;
+    const info = document.createElement('div');
+    info.className = 'collection-info';
+    const nameEl = document.createElement('div');
+    nameEl.className = 'collection-name';
+    nameEl.textContent = collection.name;
+    const countEl = document.createElement('div');
+    countEl.className = 'collection-count';
+    countEl.textContent = `${collection.tabs.length} links`;
+    info.append(nameEl, countEl);
+    collectionEl.appendChild(info);
 
     collectionEl.addEventListener('click', () => viewCollection(collection.id));
 
@@ -94,13 +98,21 @@ export async function viewCollection(collectionId: string): Promise<void> {
   collection.tabs.forEach((tab, index) => {
     const tabEl = document.createElement('div');
     tabEl.className = 'collection-tab-item';
-    tabEl.innerHTML = `
-      <span class="collection-tab-index">${index + 1}.</span>
-      <a href="${tab.url}" target="_blank" class="collection-tab-link">
-        <span class="collection-tab-title">${tab.title}</span>
-        <span class="collection-tab-url">${tab.url}</span>
-      </a>
-    `;
+    const idx = document.createElement('span');
+    idx.className = 'collection-tab-index';
+    idx.textContent = `${index + 1}.`;
+    const a = document.createElement('a');
+    a.href = tab.url;
+    a.target = '_blank';
+    a.className = 'collection-tab-link';
+    const title = document.createElement('span');
+    title.className = 'collection-tab-title';
+    title.textContent = tab.title;
+    const url = document.createElement('span');
+    url.className = 'collection-tab-url';
+    url.textContent = tab.url;
+    a.append(title, url);
+    tabEl.append(idx, a);
     tabsContainer.appendChild(tabEl);
   });
 
@@ -169,7 +181,8 @@ export async function addLinkToCurrentCollection(): Promise<void> {
     return;
   }
   try {
-    new URL(url);
+    const u = new URL(url);
+    if (!['http:', 'https:'].includes(u.protocol)) throw new Error('bad protocol');
   } catch {
     showToast('Please enter a valid URL', 'error');
     return;
@@ -184,13 +197,21 @@ export async function addLinkToCurrentCollection(): Promise<void> {
       updated.tabs.forEach((tab, index) => {
         const tabEl = document.createElement('div');
         tabEl.className = 'collection-tab-item';
-        tabEl.innerHTML = `
-          <span class="collection-tab-index">${index + 1}.</span>
-          <a href="${tab.url}" target="_blank" class="collection-tab-link">
-            <span class="collection-tab-title">${tab.title}</span>
-            <span class="collection-tab-url">${tab.url}</span>
-          </a>
-        `;
+        const idx = document.createElement('span');
+        idx.className = 'collection-tab-index';
+        idx.textContent = `${index + 1}.`;
+        const a = document.createElement('a');
+        a.href = tab.url;
+        a.target = '_blank';
+        a.className = 'collection-tab-link';
+        const title = document.createElement('span');
+        title.className = 'collection-tab-title';
+        title.textContent = tab.title;
+        const urlEl = document.createElement('span');
+        urlEl.className = 'collection-tab-url';
+        urlEl.textContent = tab.url;
+        a.append(title, urlEl);
+        tabEl.append(idx, a);
         tabsContainer.appendChild(tabEl);
       });
     }
@@ -215,18 +236,33 @@ export async function viewAllCollections(): Promise<void> {
   collections.forEach((collection, idx) => {
     const collectionEl = document.createElement('div');
     collectionEl.className = 'all-collections-item';
-    const tabsPreview = collection.tabs.slice(0, 3).map((t) => t.title).join(', ');
-    const moreCount = collection.tabs.length > 3 ? ` +${collection.tabs.length - 3} more` : '';
-    collectionEl.innerHTML = `
-      <div class="all-collections-header">
-        <span class="all-collections-number">${idx + 1}.</span>
-        <span class="all-collections-name">${collection.name}</span>
-        <span class="all-collections-count">${collection.tabs.length} links</span>
-      </div>
-      ${collection.description ? `<p class="all-collections-desc">${collection.description}</p>` : ''}
-      <div class="all-collections-preview">${tabsPreview}${moreCount}</div>
-      <div class="all-collections-date">Created: ${new Date(collection.createdAt).toLocaleDateString()}</div>
-    `;
+    const header = document.createElement('div');
+    header.className = 'all-collections-header';
+    const num = document.createElement('span');
+    num.className = 'all-collections-number';
+    num.textContent = `${idx + 1}.`;
+    const name = document.createElement('span');
+    name.className = 'all-collections-name';
+    name.textContent = collection.name;
+    const count = document.createElement('span');
+    count.className = 'all-collections-count';
+    count.textContent = `${collection.tabs.length} links`;
+    header.append(num, name, count);
+    collectionEl.appendChild(header);
+    if (collection.description) {
+      const desc = document.createElement('p');
+      desc.className = 'all-collections-desc';
+      desc.textContent = collection.description;
+      collectionEl.appendChild(desc);
+    }
+    const preview = document.createElement('div');
+    preview.className = 'all-collections-preview';
+    preview.textContent = collection.tabs.slice(0, 3).map((t) => t.title).join(', ') + (collection.tabs.length > 3 ? ` +${collection.tabs.length - 3} more` : '');
+    collectionEl.appendChild(preview);
+    const date = document.createElement('div');
+    date.className = 'all-collections-date';
+    date.textContent = `Created: ${new Date(collection.createdAt).toLocaleDateString()}`;
+    collectionEl.appendChild(date);
     collectionEl.addEventListener('click', () => {
       hideModal();
       viewCollection(collection.id);
@@ -264,13 +300,19 @@ export async function showAddToCollectionModal(): Promise<void> {
   collections.forEach((collection) => {
     const item = document.createElement('div');
     item.className = 'collection-select-item';
-    item.innerHTML = `
-      <div class="collection-select-info">
-        <div class="collection-select-name">${collection.name}</div>
-        <div class="collection-select-count">${collection.tabs.length} links</div>
-      </div>
-      <button class="btn btn-small btn-primary">Add</button>
-    `;
+    const info = document.createElement('div');
+    info.className = 'collection-select-info';
+    const name = document.createElement('div');
+    name.className = 'collection-select-name';
+    name.textContent = collection.name;
+    const cnt = document.createElement('div');
+    cnt.className = 'collection-select-count';
+    cnt.textContent = `${collection.tabs.length} links`;
+    info.append(name, cnt);
+    const btn = document.createElement('button');
+    btn.className = 'btn btn-small btn-primary';
+    btn.textContent = 'Add';
+    item.append(info, btn);
     item.addEventListener('click', async () => {
       await addSelectedTabsToCollection(collection.id);
     });
@@ -315,7 +357,7 @@ export async function handleAIOrganize(): Promise<void> {
     aiSuggestions = (await ai.organizeTabs(tabs, state.settings.apiKey)) as typeof aiSuggestions;
     renderAIPreview(aiSuggestions!);
   } catch (error) {
-    if (previewContent) previewContent.innerHTML = `<p style="color: var(--danger-color);">Error: ${(error as Error).message}</p>`;
+    if (previewContent) { previewContent.textContent = ''; const p = document.createElement('p'); p.style.color = 'var(--danger-color)'; p.textContent = `Error: ${(error as Error).message}`; previewContent.appendChild(p); }
   }
 }
 
@@ -328,11 +370,15 @@ export function renderAIPreview(suggestions: { groups: Array<{ name: string; col
     groupEl.className = 'ai-group-preview';
     const header = document.createElement('div');
     header.className = 'ai-group-header';
-    header.innerHTML = `
-      <span class="group-dot" style="background: var(--group-${group.color});"></span>
-      <span>${group.name}</span>
-      <span class="group-count">${group.tabs.length} tabs</span>
-    `;
+    const dot = document.createElement('span');
+    dot.className = 'group-dot';
+    (dot as HTMLElement).style.background = `var(--group-${group.color})`;
+    const nm = document.createElement('span');
+    nm.textContent = group.name;
+    const gc = document.createElement('span');
+    gc.className = 'group-count';
+    gc.textContent = `${group.tabs.length} tabs`;
+    header.append(dot, nm, gc);
     const tabsList = document.createElement('div');
     tabsList.className = 'ai-group-tabs';
     group.tabs.forEach((tabId) => {

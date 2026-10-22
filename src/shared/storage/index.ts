@@ -5,9 +5,20 @@ import { getLegacyCollections } from './migration.js';
 export const Storage = {
   async getSettings(): Promise<Settings> {
     try {
-      const result = await chrome.storage.sync.get([STORAGE_KEYS.settings]);
-      const val = (result as Record<string, unknown>)[STORAGE_KEYS.settings] as Settings | undefined;
-      return val ?? { apiKey: '', darkMode: false };
+      const [syncResult, localResult] = await Promise.all([
+        chrome.storage.sync.get([STORAGE_KEYS.settings]),
+        chrome.storage.local.get([STORAGE_KEYS.settings]),
+      ]);
+      const syncVal = (syncResult as Record<string, unknown>)[STORAGE_KEYS.settings] as Partial<Settings> | undefined;
+      const localVal = (localResult as Record<string, unknown>)[STORAGE_KEYS.settings] as Partial<Settings> | undefined;
+      // apiKey lives in local (not synced), darkMode in sync; support legacy where both were in sync
+      const apiKey = localVal?.apiKey ?? syncVal?.apiKey ?? '';
+      const darkMode = syncVal?.darkMode ?? localVal?.darkMode ?? false;
+      // one-time migration: if apiKey was in sync, move it
+      if (syncVal?.apiKey && !localVal?.apiKey) {
+        try { await chrome.storage.local.set({ [STORAGE_KEYS.settings]: { apiKey } }); await chrome.storage.sync.set({ [STORAGE_KEYS.settings]: { darkMode } }); } catch {}
+      }
+      return { apiKey, darkMode };
     } catch {
       return { apiKey: '', darkMode: false };
     }
@@ -15,7 +26,10 @@ export const Storage = {
 
   async saveSettings(settings: Settings): Promise<boolean> {
     try {
-      await chrome.storage.sync.set({ [STORAGE_KEYS.settings]: settings });
+      await Promise.all([
+        chrome.storage.local.set({ [STORAGE_KEYS.settings]: { apiKey: settings.apiKey } }),
+        chrome.storage.sync.set({ [STORAGE_KEYS.settings]: { darkMode: settings.darkMode } }),
+      ]);
       return true;
     } catch {
       return false;
