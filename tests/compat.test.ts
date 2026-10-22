@@ -88,12 +88,12 @@ describe('compat — storage compatibility with legacy data', () => {
     vi.resetModules();
     const { Storage } = await import('../src/shared/storage/index.js');
 
-    expect(await Storage.getSettings()).toEqual({ apiKey: '', darkMode: false });
+    expect(await Storage.getSettings()).toMatchObject({ apiKey: '', darkMode: false });
 
     await Storage.saveSettings({ apiKey: 'sk-test-123', darkMode: true });
-    expect(await Storage.getSettings()).toEqual({ apiKey: 'sk-test-123', darkMode: true });
+    expect(await Storage.getSettings()).toMatchObject({ apiKey: 'sk-test-123', darkMode: true });
 
     await Storage.saveSettings({ apiKey: 'sk-test-123', darkMode: false });
-    expect(await Storage.getSettings()).toEqual({ apiKey: 'sk-test-123', darkMode: false });
+    expect(await Storage.getSettings()).toMatchObject({ apiKey: 'sk-test-123', darkMode: false });
   });
 });

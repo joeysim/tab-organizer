@@ -142,8 +142,9 @@ export function setupModalListeners(): void {
     const { state } = await import('./state.js');
     const { Storage } = await import('../../shared/storage/index.js');
     const prevDarkMode = state.settings.darkMode;
-    state.settings = { apiKey, darkMode };
+    state.settings = { apiKey, darkMode, hasExplicitThemePreference: state.hasExplicitThemePreference };
     if (darkMode !== prevDarkMode) state.hasExplicitThemePreference = true;
+    state.settings.hasExplicitThemePreference = state.hasExplicitThemePreference;
     await Storage.saveSettings(state.settings);
     if (darkMode) document.documentElement.setAttribute('data-theme', 'dark');
     else document.documentElement.removeAttribute('data-theme');

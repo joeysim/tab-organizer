@@ -31,6 +31,7 @@ export type Collection = {
 export type Settings = {
   apiKey: string;
   darkMode: boolean;
+  hasExplicitThemePreference?: boolean;
 };
 
 export type ContentCacheEntry = {

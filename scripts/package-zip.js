@@ -14,8 +14,10 @@ mkdirSync('release', { recursive: true });
 const zipName = `release/tab-organizer-${version}.zip`;
 
 try {
+  execSync(`rm -f "${zipName}"`);
   execSync(`cd dist && zip -r "../${zipName}" . -x "*.DS_Store" -x "src/*"`, { stdio: 'inherit' });
   console.log(`Created ${zipName}`);
-} catch {
-  console.log(`Would create ${zipName} from dist/ (zip not available)`);
+} catch (e) {
+  console.error(`Failed to create ${zipName}:`, (e as Error).message);
+  process.exit(1);
 }

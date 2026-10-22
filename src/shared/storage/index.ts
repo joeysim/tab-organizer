@@ -14,11 +14,11 @@ export const Storage = {
       // apiKey lives in local (not synced), darkMode in sync; support legacy where both were in sync
       const apiKey = localVal?.apiKey ?? syncVal?.apiKey ?? '';
       const darkMode = syncVal?.darkMode ?? localVal?.darkMode ?? false;
-      // one-time migration: if apiKey was in sync, move it
+      const hasExplicitThemePreference = syncVal?.hasExplicitThemePreference ?? localVal?.hasExplicitThemePreference ?? false;
       if (syncVal?.apiKey && !localVal?.apiKey) {
-        try { await chrome.storage.local.set({ [STORAGE_KEYS.settings]: { apiKey } }); await chrome.storage.sync.set({ [STORAGE_KEYS.settings]: { darkMode } }); } catch {}
+        try { await chrome.storage.local.set({ [STORAGE_KEYS.settings]: { apiKey } }); await chrome.storage.sync.set({ [STORAGE_KEYS.settings]: { darkMode, hasExplicitThemePreference } }); } catch {}
       }
-      return { apiKey, darkMode };
+      return { apiKey, darkMode, hasExplicitThemePreference };
     } catch {
       return { apiKey: '', darkMode: false };
     }
@@ -28,7 +28,7 @@ export const Storage = {
     try {
       await Promise.all([
         chrome.storage.local.set({ [STORAGE_KEYS.settings]: { apiKey: settings.apiKey } }),
-        chrome.storage.sync.set({ [STORAGE_KEYS.settings]: { darkMode: settings.darkMode } }),
+        chrome.storage.sync.set({ [STORAGE_KEYS.settings]: { darkMode: settings.darkMode, hasExplicitThemePreference: settings.hasExplicitThemePreference } }),
       ]);
       return true;
     } catch {
