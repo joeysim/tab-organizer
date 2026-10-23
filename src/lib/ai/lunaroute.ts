@@ -3,8 +3,8 @@ import { buildPrompt } from './prompts/organize.js';
 import { parseResponse } from './claude.js';
 
 export const LUNAROUTE_API_URL = 'https://gw.lunaroute.com/v1/responses';
-export const LUNAROUTE_MODEL = 'muse-spark-open';
-export const LUNAROUTE_MODELS = ['muse-spark-open', 'muse-spark-open-background', 'glm-5.3', 'gpt-4o-mini'] as const;
+export const LUNAROUTE_MODEL = 'glm-5.3-flash';
+export const LUNAROUTE_MODELS = ['glm-5.3-flash', 'glm-5.3', 'muse-spark-open', 'muse-spark-open-background'] as const;
 
 function extractText(result: unknown): string | undefined {
   const r = result as Record<string, unknown>;

@@ -698,6 +698,8 @@ body {
 .modal-body {
   padding: 20px;
   overflow-y: auto;
+  flex: 1;
+  min-height: 0;
 }
 
 .modal-body label {
@@ -803,6 +805,16 @@ body {
   border-radius: var(--radius-md);
   margin-bottom: 12px;
   overflow: hidden;
+  background: var(--bg-secondary);
+}
+
+.ai-group-name { font-weight: 600; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+.ai-empty {
+  font-size: 13px;
+  color: var(--text-secondary);
+  line-height: 1.5;
+  padding: 16px 4px;
 }
 
 .ai-group-header {

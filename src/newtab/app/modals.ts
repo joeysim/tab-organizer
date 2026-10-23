@@ -3,7 +3,8 @@ export function showModal(modalId: string): void {
   document.getElementById('modalOverlay')?.classList.add('active');
   document.querySelectorAll('.modal').forEach((m) => ((m as HTMLElement).style.display = 'none'));
   const target = document.getElementById(modalId);
-  if (target) target.style.display = 'block';
+  // flex, not block: .modal is a flex column so .modal-body can scroll
+  if (target) target.style.display = 'flex';
 }
 
 export function hideModal(): void {

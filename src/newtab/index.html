@@ -243,17 +243,23 @@
       </div>
     </div>
 
-    <div class="modal modal-large" id="aiPreviewModal" style="display: none;">
+    <div class="modal modal-large" id="aiPreviewModal" style="display: none;" role="dialog" aria-modal="true" aria-labelledby="aiPreviewTitle">
       <div class="modal-header">
-        <h3>AI Organization Preview</h3>
-        <button class="modal-close" id="closeAiPreviewModal">&times;</button>
+        <div class="modal-header-left">
+          <span class="modal-icon">✨</span>
+          <div>
+            <h3 id="aiPreviewTitle">AI Organization</h3>
+            <p class="modal-subtitle" id="aiPreviewSummary">Analyzing your tabs…</p>
+          </div>
+        </div>
+        <button class="modal-close" id="closeAiPreviewModal" aria-label="Close">&times;</button>
       </div>
       <div class="modal-body">
         <div id="aiPreviewContent"></div>
       </div>
       <div class="modal-footer">
         <button class="btn btn-secondary" id="cancelAiBtn">Cancel</button>
-        <button class="btn btn-primary" id="applyAiBtn">Apply Changes</button>
+        <button class="btn btn-primary" id="applyAiBtn" disabled>Create groups</button>
       </div>
     </div>
   </div>

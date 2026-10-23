@@ -347,6 +347,10 @@ export async function handleAIOrganize(): Promise<void> {
   const tabs = state.tabs.map((t) => ({ id: t.id, title: t.title, url: t.url }));
   showModal('aiPreviewModal');
   const previewContent = document.getElementById('aiPreviewContent');
+  const summary = document.getElementById('aiPreviewSummary');
+  const applyBtn = document.getElementById('applyAiBtn') as HTMLButtonElement | null;
+  if (summary) summary.textContent = `Analyzing ${tabs.length} tabs…`;
+  if (applyBtn) { applyBtn.disabled = true; applyBtn.textContent = 'Analyzing…'; }
   if (previewContent) previewContent.innerHTML = '<div class="loading"><div class="loading-spinner"></div><p>Analyzing tabs...</p></div>';
   try {
     const providerName = (state.settings as unknown as { aiProvider?: 'claude' | 'lunaroute' }).aiProvider ?? 'lunaroute';
@@ -356,7 +360,18 @@ export async function handleAIOrganize(): Promise<void> {
     aiSuggestions = (await provider.organizeTabs(tabs as unknown as Parameters<typeof provider.organizeTabs>[0], state.settings.apiKey) as typeof aiSuggestions);
     renderAIPreview(aiSuggestions!);
   } catch (error) {
-    if (previewContent) { previewContent.textContent = ''; const p = document.createElement('p'); p.style.color = 'var(--danger-color)'; p.textContent = `Error: ${(error as Error).message}`; previewContent.appendChild(p); }
+    if (summary) summary.textContent = 'Failed';
+    if (applyBtn) { applyBtn.disabled = true; applyBtn.textContent = 'Nothing to apply'; }
+    if (previewContent) {
+      previewContent.textContent = '';
+      const p = document.createElement('p');
+      p.style.color = 'var(--danger-color)';
+      p.textContent = `Error: ${(error as Error).message}`;
+      const hint = document.createElement('p');
+      hint.className = 'ai-empty';
+      hint.textContent = 'Check your API key and provider in Settings, then try again.';
+      previewContent.append(p, hint);
+    }
   }
 }
 
@@ -364,7 +379,30 @@ export function renderAIPreview(suggestions: { groups: Array<{ name: string; col
   const previewContent = document.getElementById('aiPreviewContent');
   if (!previewContent) return;
   previewContent.innerHTML = '';
-  suggestions.groups.forEach((group) => {
+
+  const groups = suggestions?.groups ?? [];
+  const totalTabs = groups.reduce((n, g) => n + g.tabs.length, 0);
+  const summary = document.getElementById('aiPreviewSummary');
+  if (summary) {
+    summary.textContent = groups.length
+      ? `${groups.length} group${groups.length > 1 ? 's' : ''} · ${totalTabs} tab${totalTabs !== 1 ? 's' : ''}`
+      : 'No groups suggested';
+  }
+  const applyBtn = document.getElementById('applyAiBtn') as HTMLButtonElement | null;
+  if (applyBtn) {
+    applyBtn.disabled = groups.length === 0;
+    applyBtn.textContent = groups.length ? `Create ${groups.length} group${groups.length > 1 ? 's' : ''}` : 'Nothing to apply';
+  }
+
+  if (groups.length === 0) {
+    const empty = document.createElement('p');
+    empty.className = 'ai-empty';
+    empty.textContent = 'The model did not find clear groupings. Try opening more related tabs, or group a selection manually.';
+    previewContent.appendChild(empty);
+    return;
+  }
+
+  groups.forEach((group) => {
     const groupEl = document.createElement('div');
     groupEl.className = 'ai-group-preview';
     const header = document.createElement('div');
@@ -373,10 +411,11 @@ export function renderAIPreview(suggestions: { groups: Array<{ name: string; col
     dot.className = 'group-dot';
     (dot as HTMLElement).style.background = `var(--group-${group.color})`;
     const nm = document.createElement('span');
+    nm.className = 'ai-group-name';
     nm.textContent = group.name;
     const gc = document.createElement('span');
     gc.className = 'group-count';
-    gc.textContent = `${group.tabs.length} tabs`;
+    gc.textContent = `${group.tabs.length} tab${group.tabs.length !== 1 ? 's' : ''}`;
     header.append(dot, nm, gc);
     const tabsList = document.createElement('div');
     tabsList.className = 'ai-group-tabs';
