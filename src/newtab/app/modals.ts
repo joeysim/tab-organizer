@@ -46,6 +46,8 @@ export function showSettingsModal(): void {
     showModal('settingsModal');
     const apiKey = document.getElementById('apiKey') as HTMLInputElement | null;
     if (apiKey) apiKey.value = state.settings.apiKey || '';
+    const prov = document.getElementById('aiProvider') as HTMLSelectElement | null;
+    if (prov) prov.value = (state.settings as unknown as { aiProvider?: string }).aiProvider || 'lunaroute';
     const darkToggle = document.getElementById('darkModeToggle') as HTMLInputElement | null;
     if (darkToggle) darkToggle.checked = state.settings.darkMode || false;
   });
@@ -140,9 +142,10 @@ export function setupModalListeners(): void {
     const apiKey = (document.getElementById('apiKey') as HTMLInputElement)?.value || '';
     const darkMode = (document.getElementById('darkModeToggle') as HTMLInputElement)?.checked || false;
     const { state } = await import('./state.js');
+    const aiProvider = ((document.getElementById('aiProvider') as HTMLSelectElement)?.value || (state.settings as unknown as { aiProvider?: string }).aiProvider || 'lunaroute') as 'claude' | 'lunaroute';
     const { Storage } = await import('../../shared/storage/index.js');
     const prevDarkMode = state.settings.darkMode;
-    state.settings = { apiKey, darkMode, hasExplicitThemePreference: state.hasExplicitThemePreference };
+    state.settings = { apiKey, darkMode, aiProvider, hasExplicitThemePreference: state.hasExplicitThemePreference };
     if (darkMode !== prevDarkMode) state.hasExplicitThemePreference = true;
     state.settings.hasExplicitThemePreference = state.hasExplicitThemePreference;
     await Storage.saveSettings(state.settings);

@@ -32,6 +32,7 @@ export type Settings = {
   apiKey: string;
   darkMode: boolean;
   hasExplicitThemePreference?: boolean;
+  aiProvider?: 'claude' | 'lunaroute';
 };
 
 export type ContentCacheEntry = {

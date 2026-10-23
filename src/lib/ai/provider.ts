@@ -16,3 +16,12 @@ export interface AIProvider {
 }
 
 export type AIProviderName = 'claude' | 'lunaroute';
+
+export async function getProvider(name: AIProviderName = 'lunaroute'): Promise<AIProvider> {
+  if (name === 'lunaroute') {
+    const m = await import('./lunaroute.js');
+    return (m.LunaRouteProvider as unknown as AIProvider) ?? (m as unknown as AIProvider);
+  }
+  const m = await import('./claude.js');
+  return (m.AI as unknown as AIProvider) ?? (m as unknown as AIProvider);
+}

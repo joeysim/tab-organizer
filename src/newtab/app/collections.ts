@@ -349,12 +349,11 @@ export async function handleAIOrganize(): Promise<void> {
   const previewContent = document.getElementById('aiPreviewContent');
   if (previewContent) previewContent.innerHTML = '<div class="loading"><div class="loading-spinner"></div><p>Analyzing tabs...</p></div>';
   try {
-    const mod = await import('../../lib/ai/claude.js').catch(() => null as unknown as { AI: unknown });
-    const AI = (mod as unknown as { AI?: { organizeTabs: (tabs: unknown[], key: string) => Promise<unknown> } })?.AI as unknown as { organizeTabs?: (tabs: unknown[], key: string) => Promise<unknown> } | null;
-    // fallback to window.AI shim during Phase 1
-    const ai = (AI as unknown as { organizeTabs?: (tabs: unknown[], key: string) => Promise<unknown> }) || (window as unknown as { AI?: { organizeTabs: (tabs: unknown[], key: string) => Promise<unknown> } }).AI;
-    if (!ai?.organizeTabs) throw new Error('AI not available');
-    aiSuggestions = (await ai.organizeTabs(tabs, state.settings.apiKey)) as typeof aiSuggestions;
+    const providerName = (state.settings as unknown as { aiProvider?: 'claude' | 'lunaroute' }).aiProvider ?? 'lunaroute';
+    const { getProvider } = await import('../../lib/ai/provider.js');
+    const provider = await getProvider(providerName);
+    if (!provider?.organizeTabs) throw new Error('AI not available');
+    aiSuggestions = (await provider.organizeTabs(tabs as unknown as Parameters<typeof provider.organizeTabs>[0], state.settings.apiKey) as typeof aiSuggestions);
     renderAIPreview(aiSuggestions!);
   } catch (error) {
     if (previewContent) { previewContent.textContent = ''; const p = document.createElement('p'); p.style.color = 'var(--danger-color)'; p.textContent = `Error: ${(error as Error).message}`; previewContent.appendChild(p); }

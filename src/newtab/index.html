@@ -205,9 +205,14 @@
         <button class="modal-close" id="closeSettingsModal">&times;</button>
       </div>
       <div class="modal-body">
-        <label for="apiKey">Claude API Key</label>
-        <input type="password" id="apiKey" class="input" placeholder="sk-ant-...">
-        <p class="help-text">Required for AI-powered organization features</p>
+        <label for="apiKey">API Key</label>
+        <input type="password" id="apiKey" class="input" placeholder="sk-ant-... or Lunaroute key">
+        <p class="help-text">LunaRoute (default) or Claude — set provider below</p>
+        <label for="aiProvider">AI Provider</label>
+        <select id="aiProvider" class="input">
+          <option value="lunaroute">LunaRoute</option>
+          <option value="claude">Claude Direct</option>
+        </select>
         <label class="checkbox-label">
           <input type="checkbox" id="darkModeToggle">
           <span>Dark Mode</span>

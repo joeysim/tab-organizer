@@ -114,8 +114,8 @@ export const Storage = {
     const now = Date.now();
     const cleaned: ContentCache = {};
     for (const [tabId, entry] of Object.entries(cache)) {
-      if (now - entry.cachedAt <= CONTENT_TTL) {
-        cleaned[tabId] = entry;
+      if (now - (entry as unknown as { cachedAt: number }).cachedAt <= CONTENT_TTL) {
+        cleaned[tabId] = entry as unknown as ContentCache[keyof ContentCache];
       }
     }
     await chrome.storage.local.set({ [STORAGE_KEYS.contentCache]: cleaned });

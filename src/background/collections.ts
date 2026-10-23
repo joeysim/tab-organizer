@@ -17,9 +17,9 @@ export async function reopenCollection(collectionId: string) {
     const groupId = await chrome.tabs.group({ tabIds });
     const colors = ['blue', 'red', 'yellow', 'green', 'pink', 'purple', 'cyan', 'orange'];
     const randomColor = colors[Math.floor(Math.random() * colors.length)];
-    await chrome.tabGroups.update(groupId, {
+    await (chrome.tabGroups.update as unknown as (id: number, p: { title: string; color: string }) => Promise<void>)(groupId, {
       title: collection.name,
-      color: randomColor as chrome.tabGroups.Color
+      color: randomColor,
     });
   }
 

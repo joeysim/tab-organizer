@@ -4,7 +4,7 @@ export async function createTabGroup(name: string, tabIds: number[], color: stri
       return { error: 'No tabs provided' };
     }
     const groupId = await chrome.tabs.group({ tabIds });
-    await chrome.tabGroups.update(groupId, { title: name, color: color as chrome.tabGroups.Color });
+    await (chrome.tabGroups.update as unknown as (id: number, p: { title?: string; color?: string }) => Promise<void>)(groupId, { title: name, color });
     return { success: true, groupId };
   } catch (e) {
     return { error: (e as Error).message };
