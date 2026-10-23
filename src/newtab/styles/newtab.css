@@ -650,33 +650,54 @@ body {
   max-width: 600px;
 }
 
-/* AI preview: wide, centered, >50% of viewport */
+/* AI preview: wide, centered, >50% of viewport, fixed height so it doesn't jump */
 .modal-xl {
   width: min(1100px, 92vw);
   max-width: none;
+  height: min(760px, 88vh);
   max-height: 88vh;
 }
 
 /* Indeterminate progress for AI invocation */
 .ai-progress {
-  height: 3px;
+  height: 2px;
   background: var(--bg-tertiary);
   overflow: hidden;
   display: none;
+  position: relative;
 }
 .ai-progress.active { display: block; }
 .ai-progress-bar {
-  height: 100%;
-  width: 40%;
-  background: var(--accent-color);
-  animation: ai-indeterminate 1.15s ease-in-out infinite;
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 45%;
+  border-radius: 2px;
+  background: linear-gradient(90deg, transparent, var(--accent-color) 35%, var(--accent-color) 65%, transparent);
+  animation: ai-indeterminate 1.25s cubic-bezier(0.45, 0, 0.55, 1) infinite;
 }
 @keyframes ai-indeterminate {
-  0% { transform: translateX(-100%); }
-  100% { transform: translateX(350%); }
+  0% { transform: translateX(-120%); }
+  100% { transform: translateX(340%); }
 }
+
+/* pulsing dot in the header while working */
+.ai-working-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--accent-color);
+  display: inline-block;
+  margin-left: 8px;
+  animation: ai-pulse 1.4s ease-in-out infinite;
+}
+@keyframes ai-pulse {
+  0%, 100% { opacity: 0.35; transform: scale(0.85); }
+  50% { opacity: 1; transform: scale(1); }
+}
+
 @media (prefers-reduced-motion: reduce) {
-  .ai-progress-bar { animation-duration: 2.5s; }
+  .ai-progress-bar { animation-duration: 2.6s; }
+  .ai-working-dot { animation: none; opacity: 0.9; }
 }
 
 .modal-header {
@@ -871,32 +892,61 @@ body {
 .ai-group-tab {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 6px 8px;
+  gap: 6px;
+  padding: 4px 6px;
   border-radius: var(--radius-sm);
   cursor: grab;
+  min-width: 0;
 }
 .ai-group-tab:hover { background: var(--bg-tertiary); }
 .ai-group-tab.dragging { opacity: 0.4; }
+.ai-group-tab-favicon {
+  width: 14px;
+  height: 14px;
+  flex-shrink: 0;
+  border-radius: 2px;
+  object-fit: contain;
+}
+.ai-group-tab-fallback {
+  width: 14px;
+  height: 14px;
+  flex-shrink: 0;
+  border-radius: 2px;
+  background: var(--bg-tertiary);
+  color: var(--text-muted);
+  font-size: 9px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
 .ai-group-tab-title {
-  flex: 1;
+  flex: 0 1 auto;
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  font-size: 13px;
-  color: var(--text-secondary);
+  font-size: 12px;
+  color: var(--text-primary);
+}
+.ai-group-tab-host {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 11px;
+  color: var(--text-muted);
 }
 .ai-group-tab-remove {
   flex-shrink: 0;
-  width: 20px;
-  height: 20px;
+  width: 18px;
+  height: 18px;
   border: none;
   background: transparent;
   color: var(--text-muted);
   border-radius: 4px;
   cursor: pointer;
-  font-size: 15px;
+  font-size: 14px;
   line-height: 1;
   opacity: 0;
   transition: opacity 150ms, background 150ms, color 150ms;
@@ -905,10 +955,74 @@ body {
 .ai-group-tab:focus-within .ai-group-tab-remove { opacity: 1; }
 .ai-group-tab-remove:hover { background: var(--danger-color); color: #fff; }
 
+/* Ungrouped drop zone */
+.ai-ungrouped {
+  grid-column: 1 / -1;
+  border: 1px dashed var(--border-color);
+  border-radius: var(--radius-md);
+  padding: 8px;
+  background: var(--bg-secondary);
+}
+.ai-ungrouped.drag-over {
+  border-color: var(--accent-color);
+  background: var(--bg-tertiary);
+}
+.ai-ungrouped-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 4px 6px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+.ai-ungrouped-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 2px;
+}
+.ai-ungrouped-empty {
+  font-size: 12px;
+  color: var(--text-muted);
+  padding: 2px 4px;
+}
+
 .ai-hint {
   grid-column: 1 / -1;
   font-size: 12px;
   color: var(--text-muted);
+}
+
+/* Loading skeletons while the model is thinking */
+.ai-skeleton-group {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 12px;
+}
+.ai-skeleton-card {
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  background: var(--bg-secondary);
+  padding: 12px;
+}
+.ai-skeleton-line {
+  height: 10px;
+  border-radius: 4px;
+  background: linear-gradient(90deg, var(--bg-tertiary) 25%, var(--border-color) 50%, var(--bg-tertiary) 75%);
+  background-size: 200% 100%;
+  animation: ai-shimmer 1.6s ease-in-out infinite;
+  margin-bottom: 8px;
+}
+.ai-skeleton-line:last-child { margin-bottom: 0; }
+.ai-skeleton-line.head { width: 55%; height: 12px; }
+.ai-skeleton-line.short { width: 70%; }
+@keyframes ai-shimmer {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .ai-skeleton-line { animation-duration: 4s; }
 }
 
 .ai-empty {

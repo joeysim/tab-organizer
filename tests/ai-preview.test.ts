@@ -62,15 +62,42 @@ describe('AI preview modal', () => {
   test('remove (×) takes a tab out of its group', async () => {
     const { mod } = await setup();
     mod.renderAIPreview({ groups: [{ name: 'GitHub', color: 'blue', tabs: [1, 2] }] });
-    const removes = document.querySelectorAll('.ai-group-tab-remove');
+    const group = document.querySelector('.ai-group-preview') as HTMLElement;
+    const removes = group.querySelectorAll('.ai-group-tab-remove');
     expect(removes).toHaveLength(2);
     (removes[0] as HTMLButtonElement).click();
-    const remaining = document.querySelectorAll('.ai-group-tab');
+    const remaining = document.querySelectorAll('.ai-group-preview .ai-group-tab');
     expect(remaining).toHaveLength(1);
     expect(remaining[0].textContent).toContain('GitHub pulls');
-    // the biggest group is now 1 tab, but apply stays enabled for non-empty groups
+    // the removed tab lands in Ungrouped
+    expect(document.querySelectorAll('.ai-ungrouped .ai-group-tab')).toHaveLength(3); // tabs 3,4 + the removed tab 1
     const apply = document.getElementById('applyAiBtn') as HTMLButtonElement;
     expect(apply.disabled).toBe(false);
+  });
+
+  test('dropping a tab on Ungrouped removes it from its group', async () => {
+    const { mod } = await setup();
+    mod.renderAIPreview({ groups: [{ name: 'GitHub', color: 'blue', tabs: [1, 2] }] });
+    const source = document.querySelector('.ai-group-preview [data-tab-id="1"]') as HTMLElement;
+    const zone = document.querySelector('.ai-ungrouped') as HTMLElement;
+
+    const store: Record<string, string> = {};
+    const dt = {
+      setData: (k: string, v: string) => { store[k] = v; },
+      getData: (k: string) => store[k] ?? '',
+      effectAllowed: '', dropEffect: '',
+    } as unknown as DataTransfer;
+    const dragStart = new Event('dragstart', { bubbles: true }) as DragEvent;
+    Object.defineProperty(dragStart, 'dataTransfer', { value: dt });
+    source.dispatchEvent(dragStart);
+    const drop = new Event('drop', { bubbles: true, cancelable: true }) as DragEvent;
+    Object.defineProperty(drop, 'dataTransfer', { value: dt });
+    zone.dispatchEvent(drop);
+
+    const inGroup = Array.from(document.querySelectorAll('.ai-group-preview [data-tab-id]')).map((t) => (t as HTMLElement).dataset.tabId);
+    const inUngrouped = Array.from(document.querySelectorAll('.ai-ungrouped [data-tab-id]')).map((t) => (t as HTMLElement).dataset.tabId);
+    expect(inGroup).toEqual(['2']);
+    expect(inUngrouped).toContain('1');
   });
 
   test('drag and drop moves a tab between groups', async () => {
@@ -79,7 +106,7 @@ describe('AI preview modal', () => {
       { name: 'GitHub', color: 'blue', tabs: [1, 2] },
       { name: 'Figma', color: 'purple', tabs: [3, 4] },
     ] });
-    const source = document.querySelector('[data-tab-id="1"]') as HTMLElement;
+    const source = document.querySelector('.ai-group-preview [data-tab-id="1"]') as HTMLElement;
     const target = document.querySelectorAll('.ai-group-preview')[1] as HTMLElement;
 
     const store: Record<string, string> = {};
@@ -127,7 +154,7 @@ describe('AI preview modal', () => {
     const mod = await import('../src/newtab/app/collections.js');
     mod.renderAIPreview({ groups: [{ name: 'Only', color: 'blue', tabs: [1] }] });
     // remove the single tab
-    (document.querySelector('.ai-group-tab-remove') as HTMLButtonElement).click();
+    (document.querySelector('.ai-group-preview .ai-group-tab-remove') as HTMLButtonElement).click();
     const apply = document.getElementById('applyAiBtn') as HTMLButtonElement;
     expect(apply.disabled).toBe(true);
     expect(apply.textContent).toBe('Nothing to apply');

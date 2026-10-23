@@ -358,16 +358,24 @@ function setProgress(active: boolean, label: string): void {
   const bar = document.getElementById('aiProgress');
   const summary = document.getElementById('aiPreviewSummary');
   clearInterval(progressTimer);
+  document.getElementById('aiWorkingDot')?.remove();
   if (bar) bar.classList.toggle('active', active);
   if (!active) {
     if (summary && label) summary.textContent = label;
     return;
   }
+  const dot = document.createElement('span');
+  dot.className = 'ai-working-dot';
+  dot.id = 'aiWorkingDot';
+  summary?.appendChild(dot);
   const started = Date.now();
   const tick = () => {
     if (!summary) return;
     const secs = Math.floor((Date.now() - started) / 1000);
-    summary.textContent = `${label} · ${secs}s`;
+    const textNode = Array.from(summary.childNodes).find((n) => n.nodeType === Node.TEXT_NODE) as Text | undefined;
+    const text = `${label} · ${secs}s`;
+    if (textNode) textNode.nodeValue = text;
+    else summary.insertBefore(document.createTextNode(text), summary.firstChild);
   };
   tick();
   progressTimer = setInterval(tick, 250);
@@ -384,7 +392,17 @@ export async function handleAIOrganize(): Promise<void> {
   const previewContent = document.getElementById('aiPreviewContent');
   const applyBtn = document.getElementById('applyAiBtn') as HTMLButtonElement | null;
   if (applyBtn) { applyBtn.disabled = true; applyBtn.textContent = 'Analyzing…'; }
-  if (previewContent) previewContent.innerHTML = '<div class="ai-hint">Asking the model to group these tabs…</div>';
+  if (previewContent) {
+    previewContent.innerHTML = `
+      <div class="ai-skeleton-group">
+        ${Array.from({ length: 4 }).map(() => `
+          <div class="ai-skeleton-card">
+            <div class="ai-skeleton-line head"></div>
+            <div class="ai-skeleton-line"></div>
+            <div class="ai-skeleton-line short"></div>
+          </div>`).join('')}
+      </div>`;
+  }
   setProgress(true, `Analyzing ${tabs.length} tab${tabs.length !== 1 ? 's' : ''}`);
   try {
     const providerName = (state.settings as unknown as { aiProvider?: 'claude' | 'lunaroute' }).aiProvider ?? 'lunaroute';
@@ -449,6 +467,68 @@ function renameGroup(index: number, name: string): void {
   renderAIPreview(aiSuggestions);
 }
 
+/** Build a dense, draggable tab row: favicon + title + host + remove. */
+function createPreviewTabRow(tabId: number, groupName?: string): HTMLElement | null {
+  const tab = state.tabs.find((t) => t.id === tabId);
+  if (!tab) return null;
+
+  const row = document.createElement('div');
+  row.className = 'ai-group-tab';
+  row.draggable = true;
+  row.dataset.tabId = String(tabId);
+
+  let host = tab.url || '';
+  try { host = new URL(tab.url).hostname.replace(/^www\./, ''); } catch { /* keep raw */ }
+
+  if (tab.favIconUrl) {
+    const img = document.createElement('img');
+    img.className = 'ai-group-tab-favicon';
+    img.src = tab.favIconUrl;
+    img.alt = '';
+    img.loading = 'lazy';
+    img.onerror = () => {
+      const ph = document.createElement('span');
+      ph.className = 'ai-group-tab-fallback';
+      ph.textContent = '·';
+      img.replaceWith(ph);
+    };
+    row.appendChild(img);
+  } else {
+    const ph = document.createElement('span');
+    ph.className = 'ai-group-tab-fallback';
+    ph.textContent = '·';
+    row.appendChild(ph);
+  }
+
+  const title = document.createElement('span');
+  title.className = 'ai-group-tab-title';
+  title.textContent = tab.title || host || 'Untitled';
+  title.title = `${tab.title || ''}\n${tab.url || ''}`;
+
+  const hostEl = document.createElement('span');
+  hostEl.className = 'ai-group-tab-host';
+  hostEl.textContent = host;
+
+  const remove = document.createElement('button');
+  remove.className = 'ai-group-tab-remove';
+  remove.type = 'button';
+  remove.textContent = '×';
+  remove.setAttribute('aria-label', `Remove ${tab.title || 'tab'}${groupName ? ` from ${groupName}` : ''}`);
+  remove.addEventListener('click', (e) => { e.stopPropagation(); removeTabFromPreview(tabId); });
+
+  row.append(title, hostEl, remove);
+  row.addEventListener('dragstart', (e) => {
+    row.classList.add('dragging');
+    (e as DragEvent).dataTransfer?.setData('text/plain', String(tabId));
+    if ((e as DragEvent).dataTransfer) (e as DragEvent).dataTransfer!.effectAllowed = 'move';
+  });
+  row.addEventListener('dragend', () => {
+    row.classList.remove('dragging');
+    document.querySelectorAll('.drag-over').forEach((el) => el.classList.remove('drag-over'));
+  });
+  return row;
+}
+
 export function renderAIPreview(suggestions: { groups: Array<{ name: string; color: string; tabs: number[] }> }): void {
   const previewContent = document.getElementById('aiPreviewContent');
   if (!previewContent) return;
@@ -457,8 +537,11 @@ export function renderAIPreview(suggestions: { groups: Array<{ name: string; col
   previewContent.innerHTML = '';
 
   const groups = suggestions?.groups ?? [];
+  const placed = new Set<number>(groups.flatMap((g) => g.tabs));
+  const ungroupedTabs = state.tabs.filter((t) => !placed.has(t.id)).map((t) => t.id);
   const nonEmpty = groups.filter((g) => g.tabs.length > 0);
   const totalTabs = nonEmpty.reduce((n, g) => n + g.tabs.length, 0);
+
   const summary = document.getElementById('aiPreviewSummary');
   if (summary) {
     summary.textContent = nonEmpty.length
@@ -523,36 +606,8 @@ export function renderAIPreview(suggestions: { groups: Array<{ name: string; col
     const tabsList = document.createElement('div');
     tabsList.className = 'ai-group-tabs';
     group.tabs.forEach((tabId) => {
-      const tab = state.tabs.find((t) => t.id === tabId);
-      if (!tab) return;
-      const tabEl = document.createElement('div');
-      tabEl.className = 'ai-group-tab';
-      tabEl.draggable = true;
-      tabEl.dataset.tabId = String(tabId);
-
-      const title = document.createElement('span');
-      title.className = 'ai-group-tab-title';
-      title.textContent = tab.title;
-      title.title = tab.url;
-
-      const remove = document.createElement('button');
-      remove.className = 'ai-group-tab-remove';
-      remove.type = 'button';
-      remove.textContent = '×';
-      remove.setAttribute('aria-label', `Remove ${tab.title} from ${group.name}`);
-      remove.addEventListener('click', (e) => { e.stopPropagation(); removeTabFromPreview(tabId); });
-
-      tabEl.append(title, remove);
-      tabEl.addEventListener('dragstart', (e) => {
-        tabEl.classList.add('dragging');
-        (e as DragEvent).dataTransfer?.setData('text/plain', String(tabId));
-        if ((e as DragEvent).dataTransfer) (e as DragEvent).dataTransfer!.effectAllowed = 'move';
-      });
-      tabEl.addEventListener('dragend', () => {
-        tabEl.classList.remove('dragging');
-        document.querySelectorAll('.ai-group-preview.drag-over').forEach((el) => el.classList.remove('drag-over'));
-      });
-      tabsList.appendChild(tabEl);
+      const row = createPreviewTabRow(tabId, group.name);
+      if (row) tabsList.appendChild(row);
     });
 
     groupEl.addEventListener('dragover', (e) => {
@@ -572,6 +627,52 @@ export function renderAIPreview(suggestions: { groups: Array<{ name: string; col
     groupEl.appendChild(tabsList);
     previewContent.appendChild(groupEl);
   });
+
+  // Ungrouped zone: everything not in a group; dropping here removes it from groups
+  const ungrouped = document.createElement('div');
+  ungrouped.className = 'ai-ungrouped';
+  const uHead = document.createElement('div');
+  uHead.className = 'ai-ungrouped-header';
+  const uDot = document.createElement('span');
+  uDot.className = 'group-dot';
+  (uDot as HTMLElement).style.background = 'var(--text-muted)';
+  const uName = document.createElement('span');
+  uName.textContent = 'Ungrouped';
+  const uCount = document.createElement('span');
+  uCount.className = 'group-count';
+  uCount.textContent = `${ungroupedTabs.length} tab${ungroupedTabs.length !== 1 ? 's' : ''}`;
+  uHead.append(uDot, uName, uCount);
+  ungrouped.appendChild(uHead);
+
+  const uList = document.createElement('div');
+  uList.className = 'ai-ungrouped-list';
+  if (ungroupedTabs.length === 0) {
+    const msg = document.createElement('p');
+    msg.className = 'ai-ungrouped-empty';
+    msg.textContent = 'All tabs are in groups — drop a tab here to leave it out.';
+    uList.appendChild(msg);
+  } else {
+    ungroupedTabs.forEach((tabId) => {
+      const row = createPreviewTabRow(tabId);
+      if (row) uList.appendChild(row);
+    });
+  }
+  ungrouped.appendChild(uList);
+
+  ungrouped.addEventListener('dragover', (e) => {
+    e.preventDefault();
+    ungrouped.classList.add('drag-over');
+    if ((e as DragEvent).dataTransfer) (e as DragEvent).dataTransfer!.dropEffect = 'move';
+  });
+  ungrouped.addEventListener('dragleave', () => ungrouped.classList.remove('drag-over'));
+  ungrouped.addEventListener('drop', (e) => {
+    e.preventDefault();
+    ungrouped.classList.remove('drag-over');
+    const id = Number((e as DragEvent).dataTransfer?.getData('text/plain'));
+    if (Number.isFinite(id)) removeTabFromPreview(id);
+  });
+
+  previewContent.appendChild(ungrouped);
 }
 
 export async function applyAISuggestions(): Promise<void> {
