@@ -15,6 +15,10 @@ export function parseResponse(content: string, tabs: TabInput[]): { groups: Grou
     jsonStr = jsonMatch[1];
   }
 
+  // try to find JSON anywhere in the response (handles extra text before/after)
+  const jsonStart = jsonStr.indexOf('{');
+  const jsonEnd = jsonStr.lastIndexOf('}');
+  if (jsonStart !== -1 && jsonEnd !== -1 && jsonEnd > jsonStart) jsonStr = jsonStr.slice(jsonStart, jsonEnd + 1);
   try {
     const parsed = JSON.parse(jsonStr.trim());
 

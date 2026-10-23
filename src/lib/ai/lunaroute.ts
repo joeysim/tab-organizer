@@ -3,7 +3,8 @@ import { buildPrompt } from './prompts/organize.js';
 import { parseResponse } from './claude.js';
 
 export const LUNAROUTE_API_URL = 'https://gw.lunaroute.com/v1/responses';
-export const LUNAROUTE_MODEL = 'gpt-4o-mini';
+export const LUNAROUTE_MODEL = 'muse-spark-open';
+export const LUNAROUTE_MODELS = ['muse-spark-open', 'muse-spark-open-background', 'glm-5.3', 'gpt-4o-mini'] as const;
 
 function extractText(result: unknown): string | undefined {
   const r = result as Record<string, unknown>;
@@ -71,9 +72,15 @@ export const LunaRouteProvider: AIProvider = {
     const content = extractText(result);
 
     if (!content) {
+      console.error('LunaRoute raw result:', JSON.stringify(result).slice(0, 2000));
       throw new Error('Empty response from API');
     }
 
-    return parseResponse(content, tabs);
+    try {
+      return parseResponse(content, tabs);
+    } catch (e) {
+      console.error('LunaRoute content that failed parse:', content.slice(0, 2000));
+      throw e;
+    }
   },
 };
