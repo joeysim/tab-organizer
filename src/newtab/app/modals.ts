@@ -46,10 +46,10 @@ export function showSettingsModal(): void {
     showModal('settingsModal');
     const apiKey = document.getElementById('apiKey') as HTMLInputElement | null;
     if (apiKey) apiKey.value = state.settings.apiKey || '';
-    const prov = document.getElementById('aiProvider') as HTMLSelectElement | null;
-    if (prov) prov.value = (state.settings as unknown as { aiProvider?: string }).aiProvider || 'lunaroute';
-    const darkToggle = document.getElementById('darkModeToggle') as HTMLInputElement | null;
-    if (darkToggle) darkToggle.checked = state.settings.darkMode || false;
+    const prov = (state.settings as unknown as { aiProvider?: string }).aiProvider || 'lunaroute';
+    document.querySelectorAll('#aiProviderSegment .seg-btn').forEach(b => b.setAttribute('aria-pressed', (b as HTMLElement).dataset.value === prov ? 'true' : 'false'));
+    const theme = state.hasExplicitThemePreference ? (state.settings.darkMode ? 'dark' : 'light') : 'system';
+    document.querySelectorAll('#themeSegment .seg-btn').forEach(b => b.setAttribute('aria-pressed', (b as HTMLElement).dataset.value === theme ? 'true' : 'false'));
   });
 }
 
@@ -138,16 +138,34 @@ export function setupModalListeners(): void {
 
   document.getElementById('closeSettingsModal')?.addEventListener('click', () => hideModal());
   document.getElementById('cancelSettingsBtn')?.addEventListener('click', () => hideModal());
+  // provider/theme segments
+  document.querySelectorAll('#aiProviderSegment .seg-btn').forEach(btn => btn.addEventListener('click', () => {
+    document.querySelectorAll('#aiProviderSegment .seg-btn').forEach(b => b.setAttribute('aria-pressed', 'false'));
+    btn.setAttribute('aria-pressed', 'true');
+  }));
+  document.querySelectorAll('#themeSegment .seg-btn').forEach(btn => btn.addEventListener('click', () => {
+    document.querySelectorAll('#themeSegment .seg-btn').forEach(b => b.setAttribute('aria-pressed', 'false'));
+    btn.setAttribute('aria-pressed', 'true');
+  }));
+  document.getElementById('toggleApiKey')?.addEventListener('click', () => {
+    const el = document.getElementById('apiKey') as HTMLInputElement | null;
+    if (!el) return;
+    el.type = el.type === 'password' ? 'text' : 'password';
+  });
+
   document.getElementById('saveSettingsBtn')?.addEventListener('click', async () => {
     const apiKey = (document.getElementById('apiKey') as HTMLInputElement)?.value || '';
-    const darkMode = (document.getElementById('darkModeToggle') as HTMLInputElement)?.checked || false;
+    const provBtn = document.querySelector('#aiProviderSegment .seg-btn[aria-pressed="true"]') as HTMLElement | null;
+    const aiProvider = (provBtn?.dataset.value || 'lunaroute') as 'claude' | 'lunaroute';
+    const themeBtn = document.querySelector('#themeSegment .seg-btn[aria-pressed="true"]') as HTMLElement | null;
+    const theme = themeBtn?.dataset.value || 'system';
+    const darkMode = theme === 'dark' ? true : theme === 'light' ? false : window.matchMedia('(prefers-color-scheme: dark)').matches;
     const { state } = await import('./state.js');
-    const aiProvider = ((document.getElementById('aiProvider') as HTMLSelectElement)?.value || (state.settings as unknown as { aiProvider?: string }).aiProvider || 'lunaroute') as 'claude' | 'lunaroute';
     const { Storage } = await import('../../shared/storage/index.js');
     const prevDarkMode = state.settings.darkMode;
-    state.settings = { apiKey, darkMode, aiProvider, hasExplicitThemePreference: state.hasExplicitThemePreference };
-    if (darkMode !== prevDarkMode) state.hasExplicitThemePreference = true;
-    state.settings.hasExplicitThemePreference = state.hasExplicitThemePreference;
+    const isSystem = theme === 'system';
+    state.settings = { apiKey, darkMode, aiProvider, hasExplicitThemePreference: isSystem ? false : true };
+    if (!isSystem && darkMode !== prevDarkMode) state.hasExplicitThemePreference = true;
     await Storage.saveSettings(state.settings);
     if (darkMode) document.documentElement.setAttribute('data-theme', 'dark');
     else document.documentElement.removeAttribute('data-theme');

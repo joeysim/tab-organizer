@@ -106,27 +106,31 @@ describe('Bug: settings modal', () => {
     installBaseChrome();
     document.body.innerHTML = `
       <div id="modalOverlay"></div>
-      <div class="modal" id="settingsModal" style="display:none"><input id="apiKey" type="password"><input id="darkModeToggle" type="checkbox"><button id="saveSettingsBtn">Save</button><button id="closeSettingsModal">x</button><button id="cancelSettingsBtn">Cancel</button></div>
+      <div class="modal" id="settingsModal" style="display:none">
+        <input id="apiKey" type="password">
+        <div id="aiProviderSegment"><button class="seg-btn" data-value="lunaroute" aria-pressed="false">LunaRoute</button><button class="seg-btn" data-value="claude" aria-pressed="false">Claude</button></div>
+        <div id="themeSegment"><button class="seg-btn" data-value="system" aria-pressed="false">System</button><button class="seg-btn" data-value="light" aria-pressed="false">Light</button><button class="seg-btn" data-value="dark" aria-pressed="false">Dark</button></div>
+        <button id="saveSettingsBtn">Save</button><button id="closeSettingsModal">x</button><button id="cancelSettingsBtn">Cancel</button>
+      </div>
       <button id="settingsBtn">Settings</button>
     `;
     document.documentElement.removeAttribute('data-theme');
     vi.resetModules();
   });
 
-  test('showSettingsModal populates apiKey and darkModeToggle from state', async () => {
+  test('showSettingsModal populates apiKey and theme segment from state', async () => {
     const { state } = await import('../src/newtab/app/state.js');
     state.settings = { apiKey: 'sk-test-123', darkMode: true };
     (state as unknown as Record<string, unknown>).hasExplicitThemePreference = true;
 
     const { showSettingsModal } = await import('../src/newtab/app/modals.js');
     showSettingsModal();
-    // showSettingsModal is async via dynamic import of state — wait a tick
     await new Promise((r) => setTimeout(r, 10));
 
     const apiKeyEl = document.getElementById('apiKey') as HTMLInputElement;
-    const toggleEl = document.getElementById('darkModeToggle') as HTMLInputElement;
     expect(apiKeyEl.value).toBe('sk-test-123');
-    expect(toggleEl.checked).toBe(true);
+    const darkBtn = document.querySelector('#themeSegment .seg-btn[data-value="dark"]') as HTMLElement;
+    expect(darkBtn.getAttribute('aria-pressed')).toBe('true');
   });
 
   test('saveSettings updates state, persists to Storage, and toggles theme + hasExplicit flag', async () => {
@@ -138,12 +142,10 @@ describe('Bug: settings modal', () => {
     const { setupModalListeners } = await import('../src/newtab/app/modals.js');
     setupModalListeners();
 
-    const apiKeyEl = document.getElementById('apiKey') as HTMLInputElement;
-    const toggleEl = document.getElementById('darkModeToggle') as HTMLInputElement;
-    apiKeyEl.value = 'sk-new-key';
-    toggleEl.checked = true;
+    (document.getElementById('apiKey') as HTMLInputElement).value = 'sk-new-key';
+    document.querySelector<HTMLButtonElement>('#themeSegment .seg-btn[data-value="dark"]')!.click();
+    document.querySelector<HTMLButtonElement>('#aiProviderSegment .seg-btn[data-value="lunaroute"]')!.click();
 
-    // Click save
     document.getElementById('saveSettingsBtn')!.click();
     await new Promise((r) => setTimeout(r, 20));
 
@@ -151,8 +153,6 @@ describe('Bug: settings modal', () => {
     expect(state.settings.darkMode).toBe(true);
     expect((state as unknown as Record<string, unknown>).hasExplicitThemePreference).toBe(true);
     expect(document.documentElement.getAttribute('data-theme')).toBe('dark');
-    // Storage was called (via shared/storage which uses chrome.storage.sync.set)
-    // We can't easily assert the mock without importing Storage, but state proves wiring
     expect(chromeMock.storage.sync.set).toHaveBeenCalled;
   });
 
