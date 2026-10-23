@@ -760,8 +760,8 @@ body {
 .help-text {
   font-size: 12px;
   color: var(--text-muted);
-  margin-top: -12px;
-  margin-bottom: 16px;
+  margin-top: 6px;
+  margin-bottom: 4px;
 }
 .help-text a { color: var(--text-secondary); text-decoration: underline; text-underline-offset: 2px; }
 .help-text a:hover { color: var(--text-primary); }
