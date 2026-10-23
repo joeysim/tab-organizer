@@ -170,7 +170,7 @@ describe('Bug: settings modal', () => {
     btn.click();
     await new Promise((r) => setTimeout(r, 10));
     expect(opened).toBe(true);
-    expect(document.getElementById('settingsModal')!.style.display).toBe('block');
+    expect(document.getElementById('settingsModal')!.style.display).toBe('flex');
   });
 });
 
