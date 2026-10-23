@@ -18,6 +18,6 @@ try {
   execSync(`cd dist && zip -r "../${zipName}" . -x "*.DS_Store" -x "src/*"`, { stdio: 'inherit' });
   console.log(`Created ${zipName}`);
 } catch (e) {
-  console.error(`Failed to create ${zipName}:`, (e as Error).message);
+  console.error(`Failed to create ${zipName}:`, e.message);
   process.exit(1);
 }

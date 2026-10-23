@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Tab Organizer Dashboard",
-  "version": "2.4.2",
+  "version": "2.4.3",
   "description": "AI-powered tab organization dashboard",
   "permissions": ["tabs", "tabGroups", "scripting", "storage", "alarms"],
   "host_permissions": ["<all_urls>"],
