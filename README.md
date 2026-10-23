@@ -4,6 +4,8 @@
 
 AI-powered Chrome extension that helps you tame tab sprawl — search, group, save, and restore tabs from a single dashboard.
 
+> New here? [ABOUT.md](ABOUT.md) explains the why, the design decisions, and the privacy model.
+
 ## Features
 
 - **Dashboard** — grid/list view of all open tabs with favicons, live tab-count, and real-time updates when tabs are created, moved, or closed.
@@ -114,8 +116,8 @@ npm run test:legacy   # Legacy harness — tests/core.test.js + tests/collection
 
 ## Storage
 
-- `chrome.storage.sync` — `settings` (`apiKey`, `darkMode`).
-- `chrome.storage.local` — `collections` (array of `{ id, name, description, createdAt, tabs }`), `contentCache` (per-tab `{ content, cachedAt }` with 1 h TTL), legacy `sessions` key.
+- `chrome.storage.sync` — `settings` (`darkMode`, `hasExplicitThemePreference`).
+- `chrome.storage.local` — `settings` (`apiKey` only, so it never follows your Google account), `collections` (array of `{ id, name, description, createdAt, tabs }`), `contentCache` (per-tab `{ content, cachedAt }` with 1 h TTL), legacy `sessions` key.
 
 ## Architecture Notes
 
@@ -126,4 +128,4 @@ npm run test:legacy   # Legacy harness — tests/core.test.js + tests/collection
 
 ## License
 
-No license file is included. Add one if you plan to distribute.
+MIT — see [LICENSE](LICENSE). For the longer story (why it exists, design decisions, privacy), see [ABOUT.md](ABOUT.md).
