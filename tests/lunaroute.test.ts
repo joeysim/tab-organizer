@@ -71,6 +71,36 @@ describe('LunaRouteProvider', () => {
     expect(result.groups[0].color).toBe('red');
   });
 
+  test('skips reasoning items in output array', async () => {
+    const { LunaRouteProvider } = await import('../src/lib/ai/lunaroute.js');
+    globalThis.fetch = vi.fn(async () =>
+      ({
+        ok: true,
+        status: 200,
+        json: async () => ({
+          output: [
+            {
+              type: 'reasoning',
+              summary: [{ type: 'summary_text', text: 'Thinking about {groups}...' }],
+              content: [{ type: 'reasoning_text', text: 'The user wants {tabs} grouped. Let me think.' }],
+            },
+            {
+              type: 'message',
+              content: [{ type: 'output_text', text: JSON.stringify({ groups: [{ name: 'Y', color: 'green', tabIds: [1, 2] }] }) }],
+            },
+          ],
+        }),
+      }) as unknown as Response,
+    ) as unknown as typeof fetch;
+
+    const tabs = [
+      { id: 1, title: 'A', url: 'https://a.com' },
+      { id: 2, title: 'B', url: 'https://b.com' },
+    ];
+    const result = await LunaRouteProvider.organizeTabs(tabs, 'k');
+    expect(result.groups[0].name).toBe('Y');
+  });
+
   test('throws on missing apiKey and empty tabs short-circuit', async () => {
     const { LunaRouteProvider } = await import('../src/lib/ai/lunaroute.js');
     await expect(LunaRouteProvider.organizeTabs([{ id: 1, title: 'A', url: 'https://a.com' }], '')).rejects.toThrow(
