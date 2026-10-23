@@ -345,6 +345,8 @@ let aiSuggestions: { groups: Array<{ name: string; color: string; tabs: number[]
 
 let progressTimer: ReturnType<typeof setInterval> | undefined;
 let aiAbort: AbortController | null = null;
+/** Tab IDs that were candidates for grouping (ungrouped + http only). */
+let aiCandidates: number[] | null = null;
 
 /** Cancel any in-flight AI request (modal close, new click). */
 export function cancelAISuggestions(): void {
@@ -384,14 +386,32 @@ function setProgress(active: boolean, label: string): void {
 export async function handleAIOrganize(): Promise<void> {
   aiAbort?.abort();
   const ctrl = (aiAbort = new AbortController());
-  // only real pages: chrome://, about:, extension URLs are noise for the model
+  // only ungrouped, real pages: already-grouped tabs keep their group,
+  // and chrome://, about:, extension URLs are noise for the model
   const tabs = state.tabs
-    .filter((t) => /^https?:/i.test(t.url))
+    .filter((t) => (t.groupId === -1 || t.groupId === undefined) && /^https?:/i.test(t.url))
     .map((t) => ({ id: t.id, title: t.title, url: t.url }));
+  aiCandidates = tabs.map((t) => t.id);
   showModal('aiPreviewModal');
   const previewContent = document.getElementById('aiPreviewContent');
   const applyBtn = document.getElementById('applyAiBtn') as HTMLButtonElement | null;
   if (applyBtn) { applyBtn.disabled = true; applyBtn.textContent = 'Analyzing…'; }
+
+  if (tabs.length === 0) {
+    setProgress(false, '');
+    if (applyBtn) applyBtn.textContent = 'Nothing to apply';
+    const summary = document.getElementById('aiPreviewSummary');
+    if (summary) summary.textContent = 'No ungrouped tabs';
+    if (previewContent) {
+      previewContent.textContent = '';
+      const p = document.createElement('p');
+      p.className = 'ai-hint';
+      p.textContent = 'Every open tab is already in a group. Ungroup some tabs first, or use the dashboard to create groups manually.';
+      previewContent.appendChild(p);
+    }
+    return;
+  }
+
   if (previewContent) {
     previewContent.innerHTML = `
       <div class="ai-skeleton-group">
@@ -403,7 +423,7 @@ export async function handleAIOrganize(): Promise<void> {
           </div>`).join('')}
       </div>`;
   }
-  setProgress(true, `Analyzing ${tabs.length} tab${tabs.length !== 1 ? 's' : ''}`);
+  setProgress(true, `Analyzing ${tabs.length} ungrouped tab${tabs.length !== 1 ? 's' : ''}`);
   try {
     const providerName = (state.settings as unknown as { aiProvider?: 'claude' | 'lunaroute' }).aiProvider ?? 'lunaroute';
     const { getProvider } = await import('../../lib/ai/provider.js');
@@ -538,7 +558,9 @@ export function renderAIPreview(suggestions: { groups: Array<{ name: string; col
 
   const groups = suggestions?.groups ?? [];
   const placed = new Set<number>(groups.flatMap((g) => g.tabs));
-  const ungroupedTabs = state.tabs.filter((t) => !placed.has(t.id)).map((t) => t.id);
+  // only offer the tabs the model was given; already-grouped tabs are untouched
+  const candidateIds = aiCandidates ?? state.tabs.map((t) => t.id);
+  const ungroupedTabs = candidateIds.filter((id) => !placed.has(id) && state.tabs.some((t) => t.id === id));
   const nonEmpty = groups.filter((g) => g.tabs.length > 0);
   const totalTabs = nonEmpty.reduce((n, g) => n + g.tabs.length, 0);
 

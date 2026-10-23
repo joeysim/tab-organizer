@@ -46,6 +46,57 @@ async function setup() {
 describe('AI preview modal', () => {
   beforeEach(() => { vi.useRealTimers(); });
 
+  test('only ungrouped tabs are sent to the model', async () => {
+    installChrome();
+    seedDom();
+    vi.resetModules();
+    const { state } = await import('../src/newtab/app/state.js');
+    state.tabs = [
+      { ...TABS[0], id: 1, groupId: -1 },      // ungrouped → candidate
+      { ...TABS[1], id: 2, groupId: 77 },      // already grouped → skip
+      { ...TABS[2], id: 3, groupId: -1 },      // ungrouped → candidate
+      { ...TABS[3], id: 4, groupId: -1, url: 'chrome://extensions' }, // not a real page → skip
+    ] as never;
+
+    const sent: number[][] = [];
+    const collections = await import('../src/newtab/app/collections.js');
+    const providerMod = await import('../src/lib/ai/provider.js');
+    const spy = vi.spyOn(providerMod, 'getProvider');
+    spy.mockResolvedValue({
+      organizeTabs: async (tabs: Array<{ id: number }>) => {
+        sent.push(tabs.map((t) => t.id));
+        return { groups: [{ name: 'G', color: 'blue', tabs: [1, 3] }] };
+      },
+    } as never);
+
+    state.settings = { apiKey: 'k', darkMode: false, aiProvider: 'lunaroute' } as never;
+    await collections.handleAIOrganize();
+
+    expect(sent).toHaveLength(1);
+    expect(sent[0].sort()).toEqual([1, 3]);
+    // already-grouped tab 2 must never appear in the preview
+    const previewIds = Array.from(document.querySelectorAll('#aiPreviewContent [data-tab-id]'))
+      .map((el) => (el as HTMLElement).dataset.tabId);
+    expect(previewIds).not.toContain('2');
+    spy.mockRestore();
+  });
+
+  test('shows a clear message when every tab is already grouped', async () => {
+    installChrome();
+    seedDom();
+    vi.resetModules();
+    const { state } = await import('../src/newtab/app/state.js');
+    state.tabs = TABS.map((t) => ({ ...t, groupId: 5 })) as never;
+    const collections = await import('../src/newtab/app/collections.js');
+    state.settings = { apiKey: 'k', darkMode: false, aiProvider: 'lunaroute' } as never;
+
+    await collections.handleAIOrganize();
+
+    expect(document.getElementById('aiPreviewSummary')!.textContent).toBe('No ungrouped tabs');
+    expect(document.getElementById('aiPreviewContent')!.textContent).toContain('already in a group');
+    expect((document.getElementById('applyAiBtn') as HTMLButtonElement).disabled).toBe(true);
+  });
+
   test('renders groups, enables apply, shows summary', async () => {
     const { mod } = await setup();
     mod.renderAIPreview({ groups: [
