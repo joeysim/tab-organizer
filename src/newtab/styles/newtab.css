@@ -666,14 +666,14 @@ body {
 .settings-hint { font-size: 12px; color: var(--text-muted); margin-top: -6px; }
 .settings-divider { height: 1px; background: var(--border-color); margin: 8px 0; }
 .segmented { display: flex; gap: 8px; background: var(--bg-secondary); padding: 4px; border-radius: 10px; }
-.seg-btn { flex: 1; padding: 10px 12px; border: 1px solid transparent; border-radius: 8px; background: transparent; cursor: pointer; font-size: 13px; font-weight: 500; text-align: left; transition: background 150ms, border-color 150ms; }
+.seg-btn { flex: 1; padding: 10px 12px; border: 1px solid transparent; border-radius: 8px; background: transparent; color: var(--text-primary); font-family: inherit; cursor: pointer; font-size: 13px; font-weight: 500; text-align: left; transition: background 150ms, border-color 150ms; }
 .seg-btn[aria-pressed="true"] { background: var(--bg-primary); border-color: var(--accent-color); box-shadow: var(--shadow-sm); }
 .seg-btn:active { transform: scale(0.96); }
 .seg-icon { margin-right: 6px; }
 .seg-desc { display: block; font-size: 11px; color: var(--text-muted); font-weight: 400; }
 .input-row { display: flex; gap: 8px; align-items: center; }
 .input-row .input { flex: 1; margin: 0; }
-#toggleApiKey { flex-shrink: 0; }
+#toggleApiKey { flex-shrink: 0; border: none; cursor: pointer; }
 
 .modal-header h3 {
   font-size: 18px;
