@@ -34,8 +34,9 @@ describe('AI', () => {
     const prompt = buildPrompt(tabs);
     expect(prompt).toContain('[ID:123]');
     expect(prompt).toContain('[ID:456]');
-    expect(prompt).toContain('"GitHub"');
-    expect(prompt).toContain('https://github.com');
+    expect(prompt).toContain('GitHub');
+    // URLs are compacted to hostname (+ up to 2 path segments) to save tokens
+    expect(prompt).toContain('github.com');
   });
 
   test('parseResponse strips ```json fences', async () => {

@@ -3,8 +3,9 @@ import { buildPrompt } from './prompts/organize.js';
 import { parseResponse } from './claude.js';
 
 export const LUNAROUTE_API_URL = 'https://gw.lunaroute.com/v1/responses';
-export const LUNAROUTE_MODEL = 'glm-5.3-flash';
-export const LUNAROUTE_MODELS = ['glm-5.3-flash', 'glm-5.3', 'muse-spark-open', 'muse-spark-open-background'] as const;
+export const LUNAROUTE_MODEL = 'muse-spark-open';
+export const LUNAROUTE_MODELS = ['muse-spark-open', 'glm-5.3-flash', 'glm-5.3', 'muse-spark-open-background'] as const;
+export const LUNAROUTE_TIMEOUT_MS = 45_000;
 
 function extractText(result: unknown): string | undefined {
   const r = result as Record<string, unknown>;
@@ -45,7 +46,7 @@ function extractText(result: unknown): string | undefined {
 export const LunaRouteProvider: AIProvider = {
   name: 'lunaroute',
 
-  async organizeTabs(tabs: TabInput[], apiKey: string): Promise<{ groups: GroupSuggestion[] }> {
+  async organizeTabs(tabs: TabInput[], apiKey: string, opts?: { signal?: AbortSignal }): Promise<{ groups: GroupSuggestion[] }> {
     if (!apiKey) {
       throw new Error('API key is required');
     }
@@ -55,18 +56,25 @@ export const LunaRouteProvider: AIProvider = {
     }
 
     const prompt = buildPrompt(tabs);
+    const signal = opts?.signal
+      ? AbortSignal.any([AbortSignal.timeout(LUNAROUTE_TIMEOUT_MS), opts.signal])
+      : AbortSignal.timeout(LUNAROUTE_TIMEOUT_MS);
 
-    const response = await fetch(LUNAROUTE_API_URL, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${apiKey}`,
-      },
-      body: JSON.stringify({
-        model: LUNAROUTE_MODEL,
-        input: prompt,
-      }),
-    });
+    const base = { model: LUNAROUTE_MODEL, input: prompt, max_output_tokens: 4096 };
+    const post = (body: Record<string, unknown>) =>
+      fetch(LUNAROUTE_API_URL, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${apiKey}`,
+        },
+        body: JSON.stringify(body),
+        signal,
+      });
+
+    // cut reasoning where the backend honours it; retry plainly if it rejects the param
+    let response = await post({ ...base, reasoning: { effort: 'low' } });
+    if (response.status === 400) response = await post(base);
 
     if (!response.ok) {
       const error = await (response.json() as Promise<Record<string, unknown>>).catch(() => ({}));
@@ -75,7 +83,10 @@ export const LunaRouteProvider: AIProvider = {
       throw new Error(msg);
     }
 
-    const result = (await response.json()) as unknown;
+    const result = (await response.json()) as Record<string, unknown>;
+    if (result.status === 'incomplete') {
+      throw new Error('Response was truncated — try again with fewer tabs');
+    }
     const content = extractText(result);
 
     if (!content) {

@@ -175,8 +175,16 @@ export function setupModalListeners(): void {
     hideModal();
   });
 
-  document.getElementById('closeAiPreviewModal')?.addEventListener('click', () => hideModal());
-  document.getElementById('cancelAiBtn')?.addEventListener('click', () => hideModal());
+  document.getElementById('closeAiPreviewModal')?.addEventListener('click', async () => {
+    const { cancelAISuggestions } = await import('./collections.js');
+    cancelAISuggestions();
+    hideModal();
+  });
+  document.getElementById('cancelAiBtn')?.addEventListener('click', async () => {
+    const { cancelAISuggestions } = await import('./collections.js');
+    cancelAISuggestions();
+    hideModal();
+  });
   document.getElementById('applyAiBtn')?.addEventListener('click', async () => {
     const { applyAISuggestions } = await import('./collections.js');
     await applyAISuggestions();

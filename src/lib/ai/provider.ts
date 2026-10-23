@@ -12,7 +12,7 @@ export type TabInput = {
 
 export interface AIProvider {
   readonly name?: AIProviderName;
-  organizeTabs(tabs: TabInput[], apiKey: string): Promise<{ groups: GroupSuggestion[] }>;
+  organizeTabs(tabs: TabInput[], apiKey: string, opts?: { signal?: AbortSignal }): Promise<{ groups: GroupSuggestion[] }>;
 }
 
 export type AIProviderName = 'claude' | 'lunaroute';

@@ -343,91 +343,231 @@ export async function addSelectedTabsToCollection(collectionId: string): Promise
 // AI preview state preserved from original
 let aiSuggestions: { groups: Array<{ name: string; color: string; tabs: number[] }> } | null = null;
 
+let progressTimer: ReturnType<typeof setInterval> | undefined;
+let aiAbort: AbortController | null = null;
+
+/** Cancel any in-flight AI request (modal close, new click). */
+export function cancelAISuggestions(): void {
+  aiAbort?.abort();
+  aiAbort = null;
+  clearInterval(progressTimer);
+  document.getElementById('aiProgress')?.classList.remove('active');
+}
+
+function setProgress(active: boolean, label: string): void {
+  const bar = document.getElementById('aiProgress');
+  const summary = document.getElementById('aiPreviewSummary');
+  clearInterval(progressTimer);
+  if (bar) bar.classList.toggle('active', active);
+  if (!active) {
+    if (summary && label) summary.textContent = label;
+    return;
+  }
+  const started = Date.now();
+  const tick = () => {
+    if (!summary) return;
+    const secs = Math.floor((Date.now() - started) / 1000);
+    summary.textContent = `${label} · ${secs}s`;
+  };
+  tick();
+  progressTimer = setInterval(tick, 250);
+}
+
 export async function handleAIOrganize(): Promise<void> {
-  const tabs = state.tabs.map((t) => ({ id: t.id, title: t.title, url: t.url }));
+  aiAbort?.abort();
+  const ctrl = (aiAbort = new AbortController());
+  // only real pages: chrome://, about:, extension URLs are noise for the model
+  const tabs = state.tabs
+    .filter((t) => /^https?:/i.test(t.url))
+    .map((t) => ({ id: t.id, title: t.title, url: t.url }));
   showModal('aiPreviewModal');
   const previewContent = document.getElementById('aiPreviewContent');
-  const summary = document.getElementById('aiPreviewSummary');
   const applyBtn = document.getElementById('applyAiBtn') as HTMLButtonElement | null;
-  if (summary) summary.textContent = `Analyzing ${tabs.length} tabs…`;
   if (applyBtn) { applyBtn.disabled = true; applyBtn.textContent = 'Analyzing…'; }
-  if (previewContent) previewContent.innerHTML = '<div class="loading"><div class="loading-spinner"></div><p>Analyzing tabs...</p></div>';
+  if (previewContent) previewContent.innerHTML = '<div class="ai-hint">Asking the model to group these tabs…</div>';
+  setProgress(true, `Analyzing ${tabs.length} tab${tabs.length !== 1 ? 's' : ''}`);
   try {
     const providerName = (state.settings as unknown as { aiProvider?: 'claude' | 'lunaroute' }).aiProvider ?? 'lunaroute';
     const { getProvider } = await import('../../lib/ai/provider.js');
     const provider = await getProvider(providerName);
     if (!provider?.organizeTabs) throw new Error('AI not available');
-    aiSuggestions = (await provider.organizeTabs(tabs as unknown as Parameters<typeof provider.organizeTabs>[0], state.settings.apiKey) as typeof aiSuggestions);
+    const result = await provider.organizeTabs(
+      tabs as unknown as Parameters<typeof provider.organizeTabs>[0],
+      state.settings.apiKey,
+      { signal: ctrl.signal },
+    );
+    if (ctrl !== aiAbort) return; // superseded by a newer run or cancelled
+    aiAbort = null;
+    setProgress(false, '');
+    aiSuggestions = result as typeof aiSuggestions;
     renderAIPreview(aiSuggestions!);
   } catch (error) {
-    if (summary) summary.textContent = 'Failed';
+    if (ctrl !== aiAbort) return; // cancelled — modal already closed
+    aiAbort = null;
+    setProgress(false, '');
     if (applyBtn) { applyBtn.disabled = true; applyBtn.textContent = 'Nothing to apply'; }
+    const summary = document.getElementById('aiPreviewSummary');
+    if (summary) summary.textContent = 'Failed';
+    const message = (error as Error).name === 'TimeoutError'
+      ? 'Request timed out — try again with fewer tabs'
+      : (error as Error).message;
     if (previewContent) {
       previewContent.textContent = '';
       const p = document.createElement('p');
       p.style.color = 'var(--danger-color)';
-      p.textContent = `Error: ${(error as Error).message}`;
+      p.textContent = `Error: ${message}`;
       const hint = document.createElement('p');
-      hint.className = 'ai-empty';
+      hint.className = 'ai-hint';
       hint.textContent = 'Check your API key and provider in Settings, then try again.';
       previewContent.append(p, hint);
     }
   }
 }
 
+/** Remove a tab from whichever group holds it. */
+function removeTabFromPreview(tabId: number): void {
+  if (!aiSuggestions) return;
+  for (const g of aiSuggestions.groups) g.tabs = g.tabs.filter((id) => id !== tabId);
+  renderAIPreview(aiSuggestions);
+}
+
+/** Move a tab into the group at targetIndex (no-op when already there). */
+function moveTabToGroup(tabId: number, targetIndex: number): void {
+  if (!aiSuggestions) return;
+  const target = aiSuggestions.groups[targetIndex];
+  if (!target || target.tabs.includes(tabId)) return;
+  for (const g of aiSuggestions.groups) g.tabs = g.tabs.filter((id) => id !== tabId);
+  target.tabs.push(tabId);
+  renderAIPreview(aiSuggestions);
+}
+
+function renameGroup(index: number, name: string): void {
+  if (!aiSuggestions) return;
+  const group = aiSuggestions.groups[index];
+  const trimmed = name.trim();
+  if (group && trimmed) group.name = trimmed;
+  renderAIPreview(aiSuggestions);
+}
+
 export function renderAIPreview(suggestions: { groups: Array<{ name: string; color: string; tabs: number[] }> }): void {
   const previewContent = document.getElementById('aiPreviewContent');
   if (!previewContent) return;
+  // single source of truth: inline edits mutate this object, then re-render
+  aiSuggestions = suggestions;
   previewContent.innerHTML = '';
 
   const groups = suggestions?.groups ?? [];
-  const totalTabs = groups.reduce((n, g) => n + g.tabs.length, 0);
+  const nonEmpty = groups.filter((g) => g.tabs.length > 0);
+  const totalTabs = nonEmpty.reduce((n, g) => n + g.tabs.length, 0);
   const summary = document.getElementById('aiPreviewSummary');
   if (summary) {
-    summary.textContent = groups.length
-      ? `${groups.length} group${groups.length > 1 ? 's' : ''} · ${totalTabs} tab${totalTabs !== 1 ? 's' : ''}`
+    summary.textContent = nonEmpty.length
+      ? `${nonEmpty.length} group${nonEmpty.length > 1 ? 's' : ''} · ${totalTabs} tab${totalTabs !== 1 ? 's' : ''} · drag to move, click a name to rename`
       : 'No groups suggested';
   }
   const applyBtn = document.getElementById('applyAiBtn') as HTMLButtonElement | null;
   if (applyBtn) {
-    applyBtn.disabled = groups.length === 0;
-    applyBtn.textContent = groups.length ? `Create ${groups.length} group${groups.length > 1 ? 's' : ''}` : 'Nothing to apply';
+    applyBtn.disabled = nonEmpty.length === 0;
+    applyBtn.textContent = nonEmpty.length ? `Create ${nonEmpty.length} group${nonEmpty.length > 1 ? 's' : ''}` : 'Nothing to apply';
   }
 
   if (groups.length === 0) {
     const empty = document.createElement('p');
-    empty.className = 'ai-empty';
+    empty.className = 'ai-hint';
     empty.textContent = 'The model did not find clear groupings. Try opening more related tabs, or group a selection manually.';
     previewContent.appendChild(empty);
     return;
   }
 
-  groups.forEach((group) => {
+  groups.forEach((group, index) => {
     const groupEl = document.createElement('div');
     groupEl.className = 'ai-group-preview';
+    groupEl.dataset.groupIndex = String(index);
     const header = document.createElement('div');
     header.className = 'ai-group-header';
     const dot = document.createElement('span');
     dot.className = 'group-dot';
     (dot as HTMLElement).style.background = `var(--group-${group.color})`;
+
+    // rename in place
     const nm = document.createElement('span');
     nm.className = 'ai-group-name';
     nm.textContent = group.name;
+    nm.title = 'Click to rename';
+    nm.tabIndex = 0;
+    nm.addEventListener('click', () => {
+      if (nm.getAttribute('contenteditable') === 'true') return;
+      nm.setAttribute('contenteditable', 'true');
+      nm.focus();
+      const range = document.createRange();
+      range.selectNodeContents(nm);
+      const sel = window.getSelection();
+      sel?.removeAllRanges();
+      sel?.addRange(range);
+    });
+    const commit = () => {
+      nm.removeAttribute('contenteditable');
+      renameGroup(index, nm.textContent || group.name);
+    };
+    nm.addEventListener('blur', commit);
+    nm.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') { e.preventDefault(); nm.blur(); }
+      if (e.key === 'Escape') { nm.textContent = group.name; nm.removeAttribute('contenteditable'); nm.blur(); }
+    });
+
     const gc = document.createElement('span');
     gc.className = 'group-count';
     gc.textContent = `${group.tabs.length} tab${group.tabs.length !== 1 ? 's' : ''}`;
     header.append(dot, nm, gc);
+
     const tabsList = document.createElement('div');
     tabsList.className = 'ai-group-tabs';
     group.tabs.forEach((tabId) => {
       const tab = state.tabs.find((t) => t.id === tabId);
-      if (tab) {
-        const tabEl = document.createElement('div');
-        tabEl.className = 'ai-group-tab';
-        tabEl.textContent = tab.title;
-        tabsList.appendChild(tabEl);
-      }
+      if (!tab) return;
+      const tabEl = document.createElement('div');
+      tabEl.className = 'ai-group-tab';
+      tabEl.draggable = true;
+      tabEl.dataset.tabId = String(tabId);
+
+      const title = document.createElement('span');
+      title.className = 'ai-group-tab-title';
+      title.textContent = tab.title;
+      title.title = tab.url;
+
+      const remove = document.createElement('button');
+      remove.className = 'ai-group-tab-remove';
+      remove.type = 'button';
+      remove.textContent = '×';
+      remove.setAttribute('aria-label', `Remove ${tab.title} from ${group.name}`);
+      remove.addEventListener('click', (e) => { e.stopPropagation(); removeTabFromPreview(tabId); });
+
+      tabEl.append(title, remove);
+      tabEl.addEventListener('dragstart', (e) => {
+        tabEl.classList.add('dragging');
+        (e as DragEvent).dataTransfer?.setData('text/plain', String(tabId));
+        if ((e as DragEvent).dataTransfer) (e as DragEvent).dataTransfer!.effectAllowed = 'move';
+      });
+      tabEl.addEventListener('dragend', () => {
+        tabEl.classList.remove('dragging');
+        document.querySelectorAll('.ai-group-preview.drag-over').forEach((el) => el.classList.remove('drag-over'));
+      });
+      tabsList.appendChild(tabEl);
     });
+
+    groupEl.addEventListener('dragover', (e) => {
+      e.preventDefault();
+      groupEl.classList.add('drag-over');
+      if ((e as DragEvent).dataTransfer) (e as DragEvent).dataTransfer!.dropEffect = 'move';
+    });
+    groupEl.addEventListener('dragleave', () => groupEl.classList.remove('drag-over'));
+    groupEl.addEventListener('drop', (e) => {
+      e.preventDefault();
+      groupEl.classList.remove('drag-over');
+      const id = Number((e as DragEvent).dataTransfer?.getData('text/plain'));
+      if (Number.isFinite(id)) moveTabToGroup(id, index);
+    });
+
     groupEl.appendChild(header);
     groupEl.appendChild(tabsList);
     previewContent.appendChild(groupEl);
@@ -437,6 +577,7 @@ export function renderAIPreview(suggestions: { groups: Array<{ name: string; col
 export async function applyAISuggestions(): Promise<void> {
   if (!aiSuggestions) return;
   for (const group of aiSuggestions.groups) {
+    if (group.tabs.length === 0) continue;
     await chrome.runtime.sendMessage({ action: 'createGroup', name: group.name, color: group.color, tabIds: group.tabs });
   }
   aiSuggestions = null;

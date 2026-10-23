@@ -1,33 +1,24 @@
 import type { TabInput } from '../provider.js';
 
-export function buildPrompt(tabs: TabInput[]): string {
-  const tabList = tabs
-    .map((tab, index) => `${index + 1}. [ID:${tab.id}] "${tab.title}" - ${tab.url}`)
-    .join('\n');
-
-  return `You are a tab organization assistant. Analyze these browser tabs and suggest logical groups.
-
-TABS:
-${tabList}
-
-INSTRUCTIONS:
-1. Group related tabs by topic, project, or purpose
-2. Each group should have 2-10 tabs
-3. Use descriptive group names (2-4 words)
-4. Choose appropriate colors from: grey, blue, red, yellow, green, pink, purple, cyan, orange
-5. Don't create groups with only 1 tab unless it's clearly distinct
-6. Ungrouped/unrelated tabs can be left out
-
-RESPOND WITH ONLY VALID JSON in this exact format:
-{
-  "groups": [
-    {
-      "name": "Group Name",
-      "color": "blue",
-      "tabIds": [123, 456, 789]
-    }
-  ]
+/** hostname + first two path segments — keeps github.com/org/repo, drops query noise. */
+function compactUrl(raw: string): string {
+  try {
+    const u = new URL(raw);
+    const path = u.pathname.split('/').filter(Boolean).slice(0, 2).join('/');
+    return path ? `${u.hostname}/${path}` : u.hostname;
+  } catch {
+    return raw.slice(0, 60);
+  }
 }
 
-Important: Use the exact tab IDs from the list above (the numbers after "ID:").`;
+export function buildPrompt(tabs: TabInput[]): string {
+  const tabList = tabs.map((t) => `[ID:${t.id}] ${t.title} | ${compactUrl(t.url)}`).join('\n');
+
+  return `Group these browser tabs by topic or project. Every group needs 2+ tabs; leave unrelated tabs out.
+Names: 2-4 words. Colors: grey, blue, red, yellow, green, pink, purple, cyan, orange.
+
+Reply with JSON only, using the exact IDs above:
+{"groups":[{"name":"Group Name","color":"blue","tabIds":[1,2]}]}
+
+${tabList}`;
 }
