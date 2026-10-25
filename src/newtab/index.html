@@ -84,27 +84,6 @@
         </div>
       </main>
 
-      <!-- AI pane: recipes, conversation, composer -->
-      <aside class="ai-pane" id="aiPane" aria-label="AI assistant">
-        <div class="ai-pane-header">
-          <span class="ai-pane-title"><span class="modal-icon">✨</span> AI</span>
-          <button class="btn-icon-small" id="aiPaneCollapse" aria-label="Collapse AI pane" type="button">›</button>
-        </div>
-        <div class="ai-thread" id="aiThread" aria-live="polite">
-          <p class="ai-thread-empty">Ask for anything: “close all gmail tabs”, “group my tabs by project”, “save this session”.</p>
-        </div>
-        <div class="ai-pane-footer">
-          <div class="ai-recipes">
-            <button class="ai-recipe" data-action="group">Group by project</button>
-            <button class="ai-recipe" data-prompt="Close duplicate tabs, keeping one per URL">Close duplicates</button>
-            <button class="ai-recipe" data-prompt="Save all my open tabs as a collection called Session">Save session</button>
-          </div>
-          <form class="ai-ask" id="aiAskForm">
-            <input type="text" id="aiAskInput" class="input" placeholder="Close all gmail tabs…" autocomplete="off">
-            <button class="btn btn-primary btn-small" id="aiAskBtn" type="submit">Run</button>
-          </form>
-        </div>
-      </aside>
     </div>
   </div>
 
@@ -314,6 +293,16 @@
       </div>
     </div>
   </div>
+
+  <!-- The Lab: bottom-center button + popover (recipes, proposals, free-form) -->
+  <button id="lab" class="lab-btn" type="button" aria-haspopup="menu" aria-expanded="false" aria-label="The Lab">
+    <span>LAB</span>
+  </button>
+  <div id="labcard" class="lab-card" role="status" hidden>
+    <p class="lab-card-title"><span class="lab-card-name"></span> <span class="lab-card-state"></span></p>
+    <p class="lab-card-hint"></p>
+  </div>
+  <div id="labmenu" class="lab-menu" role="menu" aria-label="The Lab"></div>
 
   <!-- Undo bar: appears after an approved AI plan runs -->
   <div class="undo-bar" id="undoBar" role="status">

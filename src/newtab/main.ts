@@ -85,34 +85,31 @@ function setupEventListeners(): void {
     await handleAIOrganize();
   });
 
-  // AI ask box: free-form request -> plan -> approve -> execute -> undo
-  document.getElementById('aiAskForm')?.addEventListener('submit', async (e) => {
-    e.preventDefault();
-    const input = document.getElementById('aiAskInput') as HTMLInputElement | null;
-    const text = input?.value || '';
-    if (!state.settings.apiKey) {
-      showSettingsModal();
+  // The Lab: bottom-center button, recipes, proposals, free-form
+  document.getElementById('lab')?.addEventListener('click', async (e) => {
+    e.stopPropagation();
+    const { toggleLab } = await import('./app/lab.js');
+    toggleLab();
+  });
+  document.getElementById('labmenu')?.addEventListener('click', async (e) => {
+    const target = e.target as HTMLElement;
+    if (target.closest('.lab-ask')) return; // composer handles its own submit
+    const row = target.closest('.lab-row') as HTMLElement | null;
+    if (!row) return;
+    const { runPrompt } = await import('./app/lab.js');
+    if (row.classList.contains('lab-guide')) {
+      const { setCard } = await import('./app/lab.js');
+      setCard('The Lab', 'ready', 'Recipes and suggestions run a plan you approve first. Nothing changes on its own.');
+      window.setTimeout(() => void import('./app/lab.js').then((m) => m.clearCard()), 4000);
       return;
     }
-    const { runPlan } = await import('./app/ai.js');
-    await runPlan(text);
+    await runPrompt(row.dataset.prompt || '', row.dataset.group === '1');
   });
-  document.querySelectorAll<HTMLElement>('.ai-recipe').forEach((btn) => {
-    btn.addEventListener('click', async () => {
-      if (!state.settings.apiKey) {
-        showSettingsModal();
-        return;
-      }
-      // grouping gets the editable preview (drag / remove / rename per group);
-      // free-form requests get the plan preview with approve + undo
-      if (btn.dataset.action === 'group') {
-        const { handleAIOrganize } = await import('./app/collections.js');
-        await handleAIOrganize();
-        return;
-      }
-      const { runPlan } = await import('./app/ai.js');
-      await runPlan(btn.dataset.prompt || btn.textContent || '');
-    });
+  document.addEventListener('click', async (e) => {
+    const target = e.target as HTMLElement;
+    if (target.closest('#labmenu') || target.closest('#lab')) return;
+    const { labIsOpen, closeLab } = await import('./app/lab.js');
+    if (labIsOpen()) closeLab();
   });
 
   document.getElementById('approvePlanBtn')?.addEventListener('click', async () => {
@@ -127,10 +124,6 @@ function setupEventListeners(): void {
     const { closePlanModal } = await import('./app/ai.js');
     closePlanModal();
   });
-  document.getElementById('aiPaneCollapse')?.addEventListener('click', () => {
-    document.getElementById('aiPane')?.classList.toggle('collapsed');
-  });
-
   document.getElementById('undoBtn')?.addEventListener('click', async () => {
     const { undoPlan } = await import('./app/ai.js');
     await undoPlan();
@@ -195,6 +188,13 @@ async function initApp(): Promise<void> {
     setupLiveUpdates();
     setupGlobalDragHandler();
     setupKeyboardNavigation();
+  document.addEventListener('keydown', async (e) => {
+    if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
+      e.preventDefault();
+      const { toggleLab } = await import('./app/lab.js');
+      toggleLab();
+    }
+  });
     detectSystemTheme();
   } catch (error) {
     console.error('Failed to initialize app:', error);

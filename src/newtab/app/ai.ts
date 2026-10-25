@@ -23,71 +23,6 @@ type UndoSnapshot = {
 
 let undoSnapshot: UndoSnapshot | null = null;
 
-/** Conversation for the AI pane: user requests and what the extension did. */
-type Turn = { role: 'user' | 'bot'; text: string; points?: string[]; meta?: string };
-let thread: Turn[] = [];
-
-function threadEl(): HTMLElement | null {
-  return document.getElementById('aiThread');
-}
-
-export function renderThread(): void {
-  const el = threadEl();
-  if (!el) return;
-  el.textContent = '';
-  if (thread.length === 0) {
-    const p = document.createElement('p');
-    p.className = 'ai-thread-empty';
-    p.textContent = 'Ask for anything: “close all gmail tabs”, “group my tabs by project”, “save this session”.';
-    el.appendChild(p);
-    return;
-  }
-  for (const turn of thread) {
-    const msg = document.createElement('div');
-    msg.className = `ai-msg ai-msg-${turn.role}`;
-    const body = document.createElement('span');
-    body.textContent = turn.text;
-    msg.appendChild(body);
-    if (turn.points?.length) {
-      const ul = document.createElement('ul');
-      ul.className = 'ai-msg-list';
-      for (const point of turn.points) {
-        const li = document.createElement('li');
-        li.textContent = point;
-        ul.appendChild(li);
-      }
-      msg.appendChild(ul);
-    }
-    if (turn.meta) {
-      const meta = document.createElement('span');
-      meta.className = 'ai-msg-meta';
-      meta.textContent = turn.meta;
-      msg.appendChild(meta);
-    }
-    el.appendChild(msg);
-  }
-  el.scrollTop = el.scrollHeight;
-}
-
-function pushTurn(turn: Turn): void {
-  thread.push(turn);
-  if (thread.length > 20) thread = thread.slice(-20);
-  renderThread();
-}
-
-/** Recent turns, so a follow-up like "now do the same for figma" still lands. */
-function historyForPrompt(): string {
-  if (thread.length === 0) return '';
-  return thread
-    .slice(-6)
-    .map((t) => `${t.role === 'user' ? 'user' : 'you'}: ${t.text}`)
-    .join('\n');
-}
-
-export function resetThread(): void {
-  thread = [];
-  renderThread();
-}
 
 function planTabs(): PlanTab[] {
   return state.tabs
@@ -125,6 +60,7 @@ function showModal(): void {
 }
 
 export function closePlanModal(): void {
+  void import('./lab.js').then((m) => m.clearCard());
   planAbort?.abort();
   planAbort = null;
   clearInterval(progressTimer);
@@ -162,31 +98,25 @@ export async function runPlan(request: string): Promise<void> {
     const providerName = (state.settings as unknown as { aiProvider?: 'claude' | 'lunaroute' }).aiProvider ?? 'lunaroute';
     const { getProvider } = await import('../../lib/ai/provider.js');
     const provider = await getProvider(providerName);
-    const history = historyForPrompt();
-    const request = history
-      ? `Earlier in this conversation:\n${history}\n\nCurrent request: ${text}`
-      : text;
-    const result = await provider.planActions(request, tabs, state.settings.apiKey, { signal: ctrl.signal });
+    const result = await provider.planActions(text, tabs, state.settings.apiKey, { signal: ctrl.signal });
     if (ctrl !== planAbort) return;
     planAbort = null;
     setProgress(false, '');
     plan = result;
-    pushTurn({ role: 'user', text });
-    pushTurn({
-      role: 'bot',
-      text: result.summary || (result.actions.length ? 'Here is what I would do.' : 'I could not do that with the tools I have.'),
-      points: result.actions.map((a) => a.description),
-      meta: result.actions.length
-        ? `${result.actions.length} action${result.actions.length === 1 ? '' : 's'} · review before applying`
-        : undefined,
-    });
+    // report in the Lab card while the approval modal is open
+    {
+      const { setCard } = await import('./lab.js');
+      setCard(
+        text,
+        result.actions.length ? `${result.actions.length} action${result.actions.length === 1 ? '' : 's'}` : 'nothing to do',
+        result.summary || (result.actions.length ? 'Review the plan, then approve.' : 'I could not do that with the tools I have.'),
+      );
+    }
     renderPlan(result);
   } catch (error) {
     if (ctrl !== planAbort) return;
     planAbort = null;
     setProgress(false, '');
-    pushTurn({ role: 'user', text });
-    pushTurn({ role: 'bot', text: `That failed: ${(error as Error).name === 'TimeoutError' ? 'request timed out' : (error as Error).message}` });
     if (summary) summary.textContent = 'Failed';
     if (approve) { approve.disabled = true; approve.textContent = 'Nothing to approve'; }
     if (content) {
@@ -336,11 +266,6 @@ export async function approvePlan(): Promise<void> {
   const parts: string[] = [];
   if (snapshot.closedTabs.length) parts.push(`closed ${snapshot.closedTabs.length}`);
   if (snapshot.createdGroupIds.length) parts.push(`${snapshot.createdGroupIds.length} group${snapshot.createdGroupIds.length === 1 ? '' : 's'}`);
-  pushTurn({
-    role: 'bot',
-    text: parts.length ? `Done — ${parts.join(', ')}.` : 'Plan applied.',
-    meta: 'Undo is available for 20s',
-  });
   showToast(parts.length ? `Done — ${parts.join(', ')}` : 'Plan applied', 'success');
   showUndoBar();
 }
@@ -454,7 +379,6 @@ export async function undoPlan(): Promise<void> {
     if (snap.closedTabs.length) {
       await chrome.runtime.sendMessage({ action: 'reopenTabs', tabs: snap.closedTabs });
     }
-    pushTurn({ role: 'bot', text: 'Undone.' });
     showToast('Undone', 'success');
   } catch (error) {
     showToast(`Undo failed: ${(error as Error).message}`, 'error');

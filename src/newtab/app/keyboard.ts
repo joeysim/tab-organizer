@@ -15,7 +15,20 @@ export { updateFocusedCard };
 export function setupKeyboardNavigation(): void {
   let focusedIndex = -1;
 
-  document.addEventListener('keydown', (e) => {
+  document.addEventListener('keydown', async (e) => {
+    // The Lab takes the keyboard while it is open
+    const lab = await import('./lab.js');
+    if (lab.labIsOpen()) {
+      if (e.key === 'Escape') { e.preventDefault(); lab.closeLab(); return; }
+      if (e.key === 'ArrowDown') { e.preventDefault(); lab.moveLab(1); return; }
+      if (e.key === 'ArrowUp') { e.preventDefault(); lab.moveLab(-1); return; }
+      if (e.key === 'Enter' && (e.target as HTMLElement).tagName !== 'INPUT') {
+        e.preventDefault();
+        await lab.activateCurrentRow();
+        return;
+      }
+    }
+
     const cards = Array.from(document.querySelectorAll('.tab-card'));
     if (cards.length === 0) return;
 
