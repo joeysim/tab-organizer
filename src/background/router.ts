@@ -1,7 +1,7 @@
 import { listAllTabs, getTabGroups } from './tabs.js';
 import { createTabGroup, moveTabsToGroup, ungroupTabs, updateTabGroup, deleteTabGroup } from './groups.js';
 import { getTabContent, getAllTabsContent } from './content/batch.js';
-import { reopenCollection } from './collections.js';
+import { reopenCollection, reopenTabs } from './collections.js';
 
 export async function handleMessage(message: Record<string, unknown>) {
   const { action, tabId, tabIds, groupId, name, color, collectionId } = message as {
@@ -64,6 +64,9 @@ export async function handleMessage(message: Record<string, unknown>) {
 
     case 'reopenCollection':
       return await reopenCollection(collectionId as string);
+
+    case 'reopenTabs':
+      return await reopenTabs((message.tabs as Array<{ url: string; title?: string }>) ?? []);
 
     default:
       return { error: `Unknown action: ${action}` };

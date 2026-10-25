@@ -1,5 +1,8 @@
 import type { AIProvider, TabInput, GroupSuggestion } from './provider.js';
 import { buildPrompt } from './prompts/organize.js';
+import { buildPlanPrompt } from './prompts/plan.js';
+import { parsePlanResponse } from './tools.js';
+import type { PlanTab, ResolvedPlan } from './tools.js';
 import { parseResponse } from './claude.js';
 
 export const LUNAROUTE_API_URL = 'https://gw.lunaroute.com/v1/responses';
@@ -100,5 +103,46 @@ export const LunaRouteProvider: AIProvider = {
       console.error('LunaRoute content that failed parse:', content.slice(0, 2000));
       throw e;
     }
+  },
+
+  async planActions(
+    request: string,
+    tabs: PlanTab[],
+    apiKey: string,
+    opts?: { signal?: AbortSignal },
+  ): Promise<ResolvedPlan> {
+    if (!apiKey) throw new Error('API key is required');
+    if (tabs.length === 0) return { summary: 'No tabs to work with.', actions: [], skipped: [] };
+
+    const prompt = buildPlanPrompt(request, tabs);
+    const signal = opts?.signal
+      ? AbortSignal.any([AbortSignal.timeout(LUNAROUTE_TIMEOUT_MS), opts.signal])
+      : AbortSignal.timeout(LUNAROUTE_TIMEOUT_MS);
+    const base = { model: LUNAROUTE_MODEL, input: prompt, max_output_tokens: 4096 };
+    const post = (body: Record<string, unknown>) =>
+      fetch(LUNAROUTE_API_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}` },
+        body: JSON.stringify(body),
+        signal,
+      });
+
+    let response = await post({ ...base, reasoning: { effort: 'low' } });
+    if (response.status === 400) response = await post(base);
+    if (!response.ok) {
+      const err = await (response.json() as Promise<Record<string, unknown>>).catch(() => ({}));
+      throw new Error(
+        (err as { error?: { message?: string } }).error?.message || `API error: ${response.status}`,
+      );
+    }
+
+    const result = (await response.json()) as Record<string, unknown>;
+    if (result.status === 'incomplete') throw new Error('Response was truncated — try a narrower request');
+    const content = extractText(result);
+    if (!content) {
+      console.error('LunaRoute plan raw result:', JSON.stringify(result).slice(0, 2000));
+      throw new Error('Empty response from API');
+    }
+    return parsePlanResponse(content, tabs);
   },
 };

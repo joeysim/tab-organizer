@@ -1,5 +1,8 @@
 import type { AIProvider, TabInput, GroupSuggestion } from './provider.js';
 import { buildPrompt } from './prompts/organize.js';
+import { buildPlanPrompt } from './prompts/plan.js';
+import { parsePlanResponse } from './tools.js';
+import type { PlanTab, ResolvedPlan } from './tools.js';
 
 export function validateColor(color: unknown): string {
   const validColors = ['grey', 'blue', 'red', 'yellow', 'green', 'pink', 'purple', 'cyan', 'orange'];
@@ -93,6 +96,44 @@ export const ClaudeProvider: AIProvider = {
 
     return parseResponse(content, tabs);
   },
+
+  async planActions(
+    request: string,
+    tabs: PlanTab[],
+    apiKey: string,
+    opts?: { signal?: AbortSignal },
+  ): Promise<ResolvedPlan> {
+    if (!apiKey) throw new Error('API key is required');
+    if (tabs.length === 0) return { summary: 'No tabs to work with.', actions: [], skipped: [] };
+
+    const response = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': apiKey,
+        'anthropic-version': '2023-06-01',
+        'anthropic-dangerous-direct-browser-access': 'true',
+      },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 2048,
+        messages: [{ role: 'user', content: buildPlanPrompt(request, tabs) }],
+      }),
+      signal: opts?.signal,
+    });
+
+    if (!response.ok) {
+      const error = await (response.json() as Promise<Record<string, unknown>>).catch(() => ({}));
+      const msg =
+        (error as { error?: { message?: string } }).error?.message || `API error: ${response.status}`;
+      throw new Error(msg);
+    }
+
+    const result = (await response.json()) as { content?: Array<{ text?: string }> };
+    const content = result.content?.[0]?.text;
+    if (!content) throw new Error('Empty response from API');
+    return parsePlanResponse(content, tabs);
+  },
 };
 
 // Compat shape matching old global AI object
@@ -100,6 +141,7 @@ import { quickCategorize } from './categorize.js';
 
 export const AI = {
   organizeTabs: ClaudeProvider.organizeTabs.bind(ClaudeProvider),
+  planActions: ClaudeProvider.planActions.bind(ClaudeProvider),
   buildPrompt,
   parseResponse,
   validateColor,

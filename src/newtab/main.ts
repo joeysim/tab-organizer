@@ -85,6 +85,50 @@ function setupEventListeners(): void {
     await handleAIOrganize();
   });
 
+  // AI ask box: free-form request -> plan -> approve -> execute -> undo
+  document.getElementById('aiAskForm')?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const input = document.getElementById('aiAskInput') as HTMLInputElement | null;
+    const text = input?.value || '';
+    if (!state.settings.apiKey) {
+      showSettingsModal();
+      return;
+    }
+    const { runPlan } = await import('./app/ai.js');
+    await runPlan(text);
+  });
+  document.querySelectorAll<HTMLElement>('.ai-recipe').forEach((btn) => {
+    btn.addEventListener('click', async () => {
+      if (!state.settings.apiKey) {
+        showSettingsModal();
+        return;
+      }
+      const { runPlan } = await import('./app/ai.js');
+      await runPlan(btn.dataset.prompt || btn.textContent || '');
+    });
+  });
+
+  document.getElementById('approvePlanBtn')?.addEventListener('click', async () => {
+    const { approvePlan } = await import('./app/ai.js');
+    await approvePlan();
+  });
+  document.getElementById('cancelPlanBtn')?.addEventListener('click', async () => {
+    const { closePlanModal } = await import('./app/ai.js');
+    closePlanModal();
+  });
+  document.getElementById('closeAiActionModal')?.addEventListener('click', async () => {
+    const { closePlanModal } = await import('./app/ai.js');
+    closePlanModal();
+  });
+  document.getElementById('undoBtn')?.addEventListener('click', async () => {
+    const { undoPlan } = await import('./app/ai.js');
+    await undoPlan();
+  });
+  document.getElementById('dismissUndoBtn')?.addEventListener('click', async () => {
+    const { hideUndoBar } = await import('./app/ai.js');
+    hideUndoBar();
+  });
+
   setupModalListeners();
 }
 

@@ -25,3 +25,17 @@ export async function reopenCollection(collectionId: string) {
 
   return { success: true, tabsOpened: collection.tabs.length };
 }
+
+/** Re-open tabs that were closed by an approved AI action (undo). */
+export async function reopenTabs(tabs: Array<{ url: string; title?: string }>) {
+  const ids: number[] = [];
+  for (const tab of tabs) {
+    try {
+      const created = await chrome.tabs.create({ url: tab.url, active: false });
+      if (created.id !== undefined) ids.push(created.id);
+    } catch {
+      // skip URLs the browser refuses (revoked, unsupported scheme)
+    }
+  }
+  return { success: true, reopened: ids.length, tabIds: ids };
+}

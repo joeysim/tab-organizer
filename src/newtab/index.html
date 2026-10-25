@@ -57,7 +57,16 @@
 
         <div class="sidebar-section">
           <h3 class="sidebar-title">AI Tools</h3>
-          <button class="btn btn-primary" id="aiOrganizeBtn">AI Organize</button>
+          <form class="ai-ask" id="aiAskForm">
+            <input type="text" id="aiAskInput" class="input" placeholder="Close all gmail tabs…" autocomplete="off">
+            <button class="btn btn-primary btn-small" id="aiAskBtn" type="submit">Run</button>
+          </form>
+          <div class="ai-recipes">
+            <button class="ai-recipe" data-prompt="Group my ungrouped tabs by topic">Group ungrouped</button>
+            <button class="ai-recipe" data-prompt="Save all my open tabs as a collection called Session">Save session</button>
+            <button class="ai-recipe" data-prompt="Close duplicate tabs, keeping one per URL">Close duplicates</button>
+          </div>
+          <button class="btn btn-secondary btn-small" id="aiOrganizeBtn">AI Organize (classic)</button>
         </div>
       </aside>
 
@@ -243,7 +252,28 @@
       </div>
     </div>
 
-    <div class="modal modal-xl" id="aiPreviewModal" style="display: none;" role="dialog" aria-modal="true" aria-labelledby="aiPreviewTitle">
+    <div class="modal modal-xl" id="aiActionModal" style="display: none;" role="dialog" aria-modal="true" aria-labelledby="aiActionTitle">
+      <div class="modal-header">
+        <div class="modal-header-left">
+          <span class="modal-icon">✨</span>
+          <div>
+            <h3 id="aiActionTitle">AI Plan</h3>
+            <p class="modal-subtitle" id="aiPreviewSummary">Planning…</p>
+          </div>
+        </div>
+        <button class="modal-close" id="closeAiActionModal" aria-label="Close">&times;</button>
+      </div>
+      <div class="ai-progress" id="aiProgress" aria-hidden="true"><div class="ai-progress-bar"></div></div>
+      <div class="modal-body">
+        <div id="aiPreviewContent" class="plan-content"></div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" id="cancelPlanBtn">Cancel</button>
+        <button class="btn btn-primary" id="approvePlanBtn" disabled>Approve</button>
+      </div>
+    </div>
+
+    <div class="modal modal-large" id="aiPreviewModal" style="display: none;" role="dialog" aria-modal="true" aria-labelledby="aiPreviewTitle">
       <div class="modal-header">
         <div class="modal-header-left">
           <span class="modal-icon">✨</span>
@@ -263,6 +293,13 @@
         <button class="btn btn-primary" id="applyAiBtn" disabled>Create groups</button>
       </div>
     </div>
+  </div>
+
+  <!-- Undo bar: appears after an approved AI plan runs -->
+  <div class="undo-bar" id="undoBar" role="status">
+    <span id="undoBarText">AI applied changes</span>
+    <button class="btn btn-small btn-primary" id="undoBtn" type="button">Undo</button>
+    <button class="btn btn-small btn-secondary" id="dismissUndoBtn" type="button">Dismiss</button>
   </div>
 </body>
 </html>

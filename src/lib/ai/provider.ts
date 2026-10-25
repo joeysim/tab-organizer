@@ -1,3 +1,5 @@
+import type { PlanTab, ResolvedPlan } from './tools.js';
+
 export type GroupSuggestion = {
   name: string;
   color: string;
@@ -13,6 +15,13 @@ export type TabInput = {
 export interface AIProvider {
   readonly name?: AIProviderName;
   organizeTabs(tabs: TabInput[], apiKey: string, opts?: { signal?: AbortSignal }): Promise<{ groups: GroupSuggestion[] }>;
+  /** Turn a natural-language request into a validated, previewable plan. */
+  planActions(
+    request: string,
+    tabs: PlanTab[],
+    apiKey: string,
+    opts?: { signal?: AbortSignal },
+  ): Promise<ResolvedPlan>;
 }
 
 export type AIProviderName = 'claude' | 'lunaroute';
