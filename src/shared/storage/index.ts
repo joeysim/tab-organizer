@@ -15,10 +15,11 @@ export const Storage = {
       const apiKey = localVal?.apiKey ?? syncVal?.apiKey ?? '';
       const darkMode = syncVal?.darkMode ?? localVal?.darkMode ?? false;
       const hasExplicitThemePreference = syncVal?.hasExplicitThemePreference ?? localVal?.hasExplicitThemePreference ?? false;
+      const showAppWindows = syncVal?.showAppWindows ?? localVal?.showAppWindows ?? false;
       if (syncVal?.apiKey && !localVal?.apiKey) {
-        try { await chrome.storage.local.set({ [STORAGE_KEYS.settings]: { apiKey } }); await chrome.storage.sync.set({ [STORAGE_KEYS.settings]: { darkMode, hasExplicitThemePreference } }); } catch {}
+        try { await chrome.storage.local.set({ [STORAGE_KEYS.settings]: { apiKey } }); await chrome.storage.sync.set({ [STORAGE_KEYS.settings]: { darkMode, hasExplicitThemePreference, showAppWindows } }); } catch {}
       }
-      return { apiKey, darkMode, hasExplicitThemePreference };
+      return { apiKey, darkMode, hasExplicitThemePreference, showAppWindows };
     } catch {
       return { apiKey: '', darkMode: false };
     }
@@ -28,7 +29,7 @@ export const Storage = {
     try {
       await Promise.all([
         chrome.storage.local.set({ [STORAGE_KEYS.settings]: { apiKey: settings.apiKey } }),
-        chrome.storage.sync.set({ [STORAGE_KEYS.settings]: { darkMode: settings.darkMode, hasExplicitThemePreference: settings.hasExplicitThemePreference } }),
+        chrome.storage.sync.set({ [STORAGE_KEYS.settings]: { darkMode: settings.darkMode, hasExplicitThemePreference: settings.hasExplicitThemePreference, showAppWindows: settings.showAppWindows } }),
       ]);
       return true;
     } catch {

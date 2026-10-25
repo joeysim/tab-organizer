@@ -1601,3 +1601,10 @@ body {
   pointer-events: none;
 }
 .undo-bar.visible { transform: translateX(-50%) translateY(0); opacity: 1; pointer-events: auto; }
+
+.setting-hint {
+  font-size: 11px;
+  color: var(--text-muted);
+  line-height: 1.45;
+  margin-top: -2px;
+}

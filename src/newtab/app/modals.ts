@@ -49,6 +49,8 @@ export function showSettingsModal(): void {
     if (apiKey) apiKey.value = state.settings.apiKey || '';
     const prov = (state.settings as unknown as { aiProvider?: string }).aiProvider || 'lunaroute';
     document.querySelectorAll('#aiProviderSegment .seg-btn').forEach(b => b.setAttribute('aria-pressed', (b as HTMLElement).dataset.value === prov ? 'true' : 'false'));
+    const appToggle = document.getElementById('showAppWindows') as HTMLInputElement | null;
+    if (appToggle) appToggle.checked = !!state.settings.showAppWindows;
     const theme = state.hasExplicitThemePreference ? (state.settings.darkMode ? 'dark' : 'light') : 'system';
     document.querySelectorAll('#themeSegment .seg-btn').forEach(b => b.setAttribute('aria-pressed', (b as HTMLElement).dataset.value === theme ? 'true' : 'false'));
   });
@@ -161,17 +163,23 @@ export function setupModalListeners(): void {
     const themeBtn = document.querySelector('#themeSegment .seg-btn[aria-pressed="true"]') as HTMLElement | null;
     const theme = themeBtn?.dataset.value || 'system';
     const darkMode = theme === 'dark' ? true : theme === 'light' ? false : window.matchMedia('(prefers-color-scheme: dark)').matches;
+    const showAppWindows = (document.getElementById('showAppWindows') as HTMLInputElement | null)?.checked || false;
     const { state } = await import('./state.js');
     const { Storage } = await import('../../shared/storage/index.js');
     const prevDarkMode = state.settings.darkMode;
+    const appVisibilityChanged = !!state.settings.showAppWindows !== showAppWindows;
     const isSystem = theme === 'system';
-    state.settings = { apiKey, darkMode, aiProvider, hasExplicitThemePreference: isSystem ? false : true };
+    state.settings = { apiKey, darkMode, aiProvider, showAppWindows, hasExplicitThemePreference: isSystem ? false : true };
     if (!isSystem && darkMode !== prevDarkMode) state.hasExplicitThemePreference = true;
     await Storage.saveSettings(state.settings);
     if (darkMode) document.documentElement.setAttribute('data-theme', 'dark');
     else document.documentElement.removeAttribute('data-theme');
     const aiBtn = document.getElementById('aiOrganizeBtn') as HTMLButtonElement | null;
     if (aiBtn) aiBtn.disabled = !apiKey;
+    if (appVisibilityChanged) {
+      const { loadTabs } = await import('./render.js');
+      await loadTabs(false);
+    }
     hideModal();
   });
 

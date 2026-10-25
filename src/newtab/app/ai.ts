@@ -33,8 +33,6 @@ function planTabs(): PlanTab[] {
       groupId: t.groupId ?? -1,
       groupName: t.groupName ?? null,
       pinned: t.pinned,
-      windowId: t.windowId,
-      windowType: t.windowType,
     }));
 }
 

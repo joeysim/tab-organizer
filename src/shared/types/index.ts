@@ -35,6 +35,8 @@ export type Settings = {
   darkMode: boolean;
   hasExplicitThemePreference?: boolean;
   aiProvider?: 'claude' | 'lunaroute';
+  /** Include standalone app windows (installed PWAs). Default false. */
+  showAppWindows?: boolean;
 };
 
 export type ContentCacheEntry = {

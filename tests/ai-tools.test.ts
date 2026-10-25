@@ -5,23 +5,17 @@ import {
   describeAction,
   parsePlanResponse,
   buildInventory,
-  buildWindowSummary,
 } from '../src/lib/ai/tools.js';
 import type { PlanTab } from '../src/lib/ai/tools.js';
 
 const TABS: PlanTab[] = [
-  { id: 1, title: 'Inbox (12)', url: 'https://mail.google.com/mail/u/0', groupId: -1, pinned: false, windowId: 10, windowType: 'normal' },
-  { id: 2, title: 'Sent', url: 'https://mail.google.com/mail/u/1', groupId: -1, pinned: false, windowId: 10, windowType: 'normal' },
-  { id: 3, title: 'React docs', url: 'https://react.dev/learn', groupId: 7, groupName: 'Dev', pinned: false, windowId: 10, windowType: 'normal' },
-  { id: 4, title: 'Pull requests', url: 'https://github.com/o/r/pulls', groupId: 7, groupName: 'Dev', pinned: true, windowId: 10, windowType: 'normal' },
-  { id: 5, title: 'News', url: 'https://news.ycombinator.com/', groupId: -1, pinned: false, windowId: 10, windowType: 'normal' },
+  { id: 1, title: 'Inbox (12)', url: 'https://mail.google.com/mail/u/0', groupId: -1, pinned: false },
+  { id: 2, title: 'Sent', url: 'https://mail.google.com/mail/u/1', groupId: -1, pinned: false },
+  { id: 3, title: 'React docs', url: 'https://react.dev/learn', groupId: 7, groupName: 'Dev', pinned: false },
+  { id: 4, title: 'Pull requests', url: 'https://github.com/o/r/pulls', groupId: 7, groupName: 'Dev', pinned: true },
+  { id: 5, title: 'News', url: 'https://news.ycombinator.com/', groupId: -1, pinned: false },
 ];
 
-// a standalone (installed PWA) window holding only Gmail, plus its own tab
-const APP_TABS: PlanTab[] = [
-  ...TABS,
-  { id: 6, title: 'Gmail', url: 'https://mail.google.com/mail/u/0/#inbox', groupId: -1, pinned: false, windowId: 99, windowType: 'app' },
-];
 
 describe('resolveSelector', () => {
   test('ids picks exactly those tabs', () => {
@@ -55,48 +49,6 @@ describe('resolveSelector', () => {
     expect(resolveSelector('all', TABS)).toHaveLength(0);
     // explicit opt-in is the only way to get everything
     expect(resolveSelector({ all: true }, TABS)).toHaveLength(TABS.length);
-  });
-});
-
-describe('window targeting', () => {
-  test('windowType app isolates the standalone PWA window', () => {
-    const got = resolveSelector({ windowType: 'app' }, APP_TABS).map((t) => t.id);
-    expect(got).toEqual([6]);
-  });
-
-  test('windowType normal excludes the app window', () => {
-    const got = resolveSelector({ windowType: 'normal' }, APP_TABS).map((t) => t.id);
-    expect(got).not.toContain(6);
-    expect(got).toContain(1);
-  });
-
-  test('windowId targets exactly one window', () => {
-    expect(resolveSelector({ windowId: 99 }, APP_TABS).map((t) => t.id)).toEqual([6]);
-    expect(resolveSelector({ windowId: 10 }, APP_TABS).map((t) => t.id)).toEqual([1, 2, 3, 4, 5]);
-  });
-
-  test('tabs with no windowType count as normal', () => {
-    const noType: PlanTab[] = [{ id: 1, title: 'x', url: 'https://a.com', groupId: -1 }];
-    expect(resolveSelector({ windowType: 'normal' }, noType)).toHaveLength(1);
-    expect(resolveSelector({ windowType: 'app' }, noType)).toHaveLength(0);
-  });
-
-  test('malformed window selectors resolve to nothing', () => {
-    expect(resolveSelector({ windowType: '' }, APP_TABS)).toHaveLength(0);
-    expect(resolveSelector({ windowId: 'nope' }, APP_TABS)).toHaveLength(0);
-  });
-
-  test('inventory flags non-normal windows so the model can target them', () => {
-    expect(buildInventory(APP_TABS)).toContain('window:app#99');
-    // normal windows are the default and stay unflagged
-    expect(buildInventory(APP_TABS)).not.toContain('window:normal');
-  });
-
-  test('window summary lists id, type, count and hosts', () => {
-    const summary = buildWindowSummary(APP_TABS);
-    expect(summary).toContain('window 99 — app, 1 tabs');
-    expect(summary).toContain('window 10 — normal');
-    expect(summary).toContain('mail.google.com');
   });
 });
 

@@ -13,7 +13,14 @@ export async function loadTabs(showLoading = true): Promise<void> {
   }
   try {
     const response = (await chrome.runtime.sendMessage({ action: 'getTabs' })) as { success?: boolean; tabs?: typeof state.tabs };
-    if (response.success && response.tabs) state.tabs = response.tabs;
+    if (response.success && response.tabs) {
+      // Standalone app windows (installed PWAs) are hidden unless opted in:
+      // they are rarely what people mean by "my tabs" and clutter search/AI.
+      const all = response.tabs;
+      state.tabs = state.settings.showAppWindows
+        ? all
+        : all.filter((t) => (t.windowType ?? 'normal') !== 'app');
+    }
     const groupResponse = (await chrome.runtime.sendMessage({ action: 'getGroups' })) as {
       success?: boolean;
       groups?: typeof state.groups;
