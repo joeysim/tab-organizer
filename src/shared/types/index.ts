@@ -7,6 +7,8 @@ export type Tab = {
   groupName: string | null;
   groupColor: string | null;
   windowId: number;
+  /** Chrome window type: 'normal' | 'popup' | 'app' (standalone/PWA) | 'panel' | 'devtools' */
+  windowType?: string;
   index: number;
   active: boolean;
   pinned: boolean;

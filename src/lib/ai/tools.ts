@@ -22,6 +22,9 @@ export type PlanTab = {
   groupId: number;
   groupName?: string | null;
   pinned?: boolean;
+  windowId?: number;
+  /** 'normal' | 'popup' | 'app' (standalone PWA window) | ... */
+  windowType?: string;
 };
 
 export type TabSelector =
@@ -30,7 +33,10 @@ export type TabSelector =
   | { urlContains: string }
   | { titleContains: string }
   | { ungrouped: true }
+  | { group: string }
   | { pinned: true }
+  | { windowId: number }
+  | { windowType: 'app' | 'normal' | 'popup' }
   | { all: true };
 
 export type ToolName =
@@ -152,7 +158,18 @@ export function resolveSelector(selector: unknown, tabs: PlanTab[]): PlanTab[] {
     return tabs.filter((t) => (t.title || '').toLowerCase().includes(q));
   }
   if (s.ungrouped === true) return tabs.filter((t) => t.groupId === -1);
+  if (typeof s.group === 'string' && s.group.trim()) {
+    const want = s.group.trim().toLowerCase();
+    return tabs.filter((t) => t.groupId !== -1 && (t.groupName || '').toLowerCase() === want);
+  }
   if (s.pinned === true) return tabs.filter((t) => t.pinned === true);
+  if (typeof s.windowId === 'number' && Number.isFinite(s.windowId)) {
+    return tabs.filter((t) => t.windowId === s.windowId);
+  }
+  if (typeof s.windowType === 'string' && s.windowType.trim()) {
+    const want = s.windowType.trim().toLowerCase();
+    return tabs.filter((t) => String(t.windowType ?? 'normal').toLowerCase() === want);
+  }
   if (s.all === true) return [...tabs];
   return [];
 }
@@ -256,8 +273,26 @@ export function buildInventory(tabs: PlanTab[]): string {
       const flags = [
         t.groupId !== -1 ? `group:${t.groupName || t.groupId}` : '',
         t.pinned ? 'pinned' : '',
+        t.windowType && t.windowType !== 'normal' ? `window:${t.windowType}#${t.windowId}` : '',
       ].filter(Boolean).join(' ');
       return `[ID:${t.id}] ${t.title || '(untitled)'} | ${host}${flags ? ` | ${flags}` : ''}`;
+    })
+    .join('\n');
+}
+
+/** One line per Chrome window, so the model can target a standalone app window. */
+export function buildWindowSummary(tabs: PlanTab[]): string {
+  const byWindow = new Map<number, PlanTab[]>();
+  for (const t of tabs) {
+    const id = t.windowId ?? -1;
+    if (!byWindow.has(id)) byWindow.set(id, []);
+    byWindow.get(id)!.push(t);
+  }
+  return [...byWindow.entries()]
+    .map(([id, list]) => {
+      const type = list[0]?.windowType || 'normal';
+      const hosts = [...new Set(list.map((t) => hostOf(t.url)).filter(Boolean))].slice(0, 4).join(', ');
+      return `window ${id} — ${type}, ${list.length} tabs${hosts ? ` (${hosts})` : ''}`;
     })
     .join('\n');
 }

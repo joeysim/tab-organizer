@@ -1,5 +1,5 @@
 import type { PlanTab } from '../tools.js';
-import { buildInventory, catalogForPrompt } from '../tools.js';
+import { buildInventory, buildWindowSummary, catalogForPrompt } from '../tools.js';
 
 /**
  * One-shot planning prompt. We deliberately do NOT run a tool loop: the model
@@ -19,7 +19,10 @@ TARGETING — every action needs "select", one of:
 {"urlContains":"github.com/pulls"}
 {"titleContains":"inbox"}
 {"ungrouped":true}         tabs not in any group
+{"group":"Dev"}            tabs in the group titled "Dev"
 {"pinned":true}
+{"windowId":123}           every tab in that Chrome window
+{"windowType":"app"}       tabs in standalone/app windows (installed PWAs)
 {"all":true}               every tab
 
 RULES
@@ -27,6 +30,9 @@ RULES
 - Never select a tab unless it matches what the user asked for.
 - Closing tabs is destructive; do it only when asked.
 - If the request cannot be done with these tools, return {"actions":[]} and explain in "summary".
+
+WINDOWS
+${buildWindowSummary(tabs)}
 
 OPEN TABS
 ${buildInventory(tabs)}

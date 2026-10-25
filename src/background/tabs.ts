@@ -7,9 +7,20 @@ export async function getGroupsMap(): Promise<Map<number, { title: string; color
   }
 }
 
+/** windowId -> window type ('normal' | 'popup' | 'app' | 'panel' | 'devtools'). */
+export async function getWindowTypesMap(): Promise<Map<number, string>> {
+  try {
+    const windows = await chrome.windows.getAll({ populate: false });
+    return new Map(windows.filter((w) => w.id !== undefined).map((w) => [w.id!, String(w.type)]));
+  } catch {
+    return new Map();
+  }
+}
+
 export async function listAllTabs() {
   const tabs = await chrome.tabs.query({});
   const groups = await getGroupsMap();
+  const windowTypes = await getWindowTypesMap();
 
   return {
     success: true,
@@ -22,6 +33,7 @@ export async function listAllTabs() {
       groupName: groups.get(tab.groupId!)?.title || null,
       groupColor: groups.get(tab.groupId!)?.color || null,
       windowId: tab.windowId,
+      windowType: windowTypes.get(tab.windowId!) || 'normal',
       index: tab.index,
       active: tab.active,
       pinned: tab.pinned
