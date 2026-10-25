@@ -55,19 +55,6 @@
           </div>
         </div>
 
-        <div class="sidebar-section">
-          <h3 class="sidebar-title">AI Tools</h3>
-          <form class="ai-ask" id="aiAskForm">
-            <input type="text" id="aiAskInput" class="input" placeholder="Close all gmail tabs…" autocomplete="off">
-            <button class="btn btn-primary btn-small" id="aiAskBtn" type="submit">Run</button>
-          </form>
-          <div class="ai-recipes">
-            <button class="ai-recipe" data-prompt="Group my ungrouped tabs by topic">Group ungrouped</button>
-            <button class="ai-recipe" data-prompt="Save all my open tabs as a collection called Session">Save session</button>
-            <button class="ai-recipe" data-prompt="Close duplicate tabs, keeping one per URL">Close duplicates</button>
-          </div>
-          <button class="btn btn-secondary btn-small" id="aiOrganizeBtn">AI Organize (classic)</button>
-        </div>
       </aside>
 
       <!-- Tab Grid -->
@@ -96,6 +83,28 @@
           <p>Loading tabs...</p>
         </div>
       </main>
+
+      <!-- AI pane: recipes, conversation, composer -->
+      <aside class="ai-pane" id="aiPane" aria-label="AI assistant">
+        <div class="ai-pane-header">
+          <span class="ai-pane-title"><span class="modal-icon">✨</span> AI</span>
+          <button class="btn-icon-small" id="aiPaneCollapse" aria-label="Collapse AI pane" type="button">›</button>
+        </div>
+        <div class="ai-thread" id="aiThread" aria-live="polite">
+          <p class="ai-thread-empty">Ask for anything: “close all gmail tabs”, “group my tabs by project”, “save this session”.</p>
+        </div>
+        <div class="ai-pane-footer">
+          <div class="ai-recipes">
+            <button class="ai-recipe" data-action="group">Group by project</button>
+            <button class="ai-recipe" data-prompt="Close duplicate tabs, keeping one per URL">Close duplicates</button>
+            <button class="ai-recipe" data-prompt="Save all my open tabs as a collection called Session">Save session</button>
+          </div>
+          <form class="ai-ask" id="aiAskForm">
+            <input type="text" id="aiAskInput" class="input" placeholder="Close all gmail tabs…" autocomplete="off">
+            <button class="btn btn-primary btn-small" id="aiAskBtn" type="submit">Run</button>
+          </form>
+        </div>
+      </aside>
     </div>
   </div>
 
@@ -239,9 +248,10 @@
         <!-- Tabs -->
         <div class="settings-section">
           <h4 class="settings-label">Tabs</h4>
-          <label class="checkbox-label">
-            <input type="checkbox" id="showAppWindows">
-            <span>Include app windows</span>
+          <label class="switch-row" for="showAppWindows">
+            <span class="switch-label">Include app windows</span>
+            <input type="checkbox" id="showAppWindows" class="switch-input">
+            <span class="switch" aria-hidden="true"></span>
           </label>
           <p class="setting-hint">Installed web apps (like Gmail opened in its own window) are hidden from the dashboard and AI by default.</p>
         </div>
@@ -268,14 +278,14 @@
           <span class="modal-icon">✨</span>
           <div>
             <h3 id="aiActionTitle">AI Plan</h3>
-            <p class="modal-subtitle" id="aiPreviewSummary">Planning…</p>
+            <p class="modal-subtitle" id="aiPlanSummary">Planning…</p>
           </div>
         </div>
         <button class="modal-close" id="closeAiActionModal" aria-label="Close">&times;</button>
       </div>
-      <div class="ai-progress" id="aiProgress" aria-hidden="true"><div class="ai-progress-bar"></div></div>
+      <div class="ai-progress" id="aiPlanProgress" aria-hidden="true"><div class="ai-progress-bar"></div></div>
       <div class="modal-body">
-        <div id="aiPreviewContent" class="plan-content"></div>
+        <div id="aiPlanContent" class="plan-content"></div>
       </div>
       <div class="modal-footer">
         <button class="btn btn-secondary" id="cancelPlanBtn">Cancel</button>

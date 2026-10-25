@@ -35,6 +35,7 @@ export function parseResponse(content: string, tabs: TabInput[]): { groups: Grou
       .map((group) => ({
         name: String((group.name as string) || 'Untitled'),
         color: validateColor(group.color),
+        why: typeof group.why === 'string' ? String(group.why).slice(0, 200) : undefined,
         tabs: ((group.tabIds as number[]) || (group.tabs as number[]) || [])
           .filter((id) => validTabIds.has(Number(id)))
           .map((id) => Number(id)),

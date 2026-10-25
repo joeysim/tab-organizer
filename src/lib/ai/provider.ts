@@ -4,6 +4,8 @@ export type GroupSuggestion = {
   name: string;
   color: string;
   tabs: number[];
+  /** One line of reasoning from the model, shown in the preview. */
+  why?: string;
 };
 
 export type TabInput = {

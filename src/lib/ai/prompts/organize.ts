@@ -1,24 +1,34 @@
 import type { TabInput } from '../provider.js';
 
-/** hostname + first two path segments — keeps github.com/org/repo, drops query noise. */
+/** hostname + path — repo/issue/thread identity lives in the path. */
 function compactUrl(raw: string): string {
   try {
     const u = new URL(raw);
-    const path = u.pathname.split('/').filter(Boolean).slice(0, 2).join('/');
-    return path ? `${u.hostname}/${path}` : u.hostname;
+    const path = u.pathname.replace(/\/$/, '');
+    return `${u.hostname.replace(/^www\./, '')}${path}`;
   } catch {
-    return raw.slice(0, 60);
+    return raw.slice(0, 80);
   }
 }
 
 export function buildPrompt(tabs: TabInput[]): string {
   const tabList = tabs.map((t) => `[ID:${t.id}] ${t.title} | ${compactUrl(t.url)}`).join('\n');
 
-  return `Group these browser tabs by topic or project. Every group needs 2+ tabs; leave unrelated tabs out.
-Names: 2-4 words. Colors: grey, blue, red, yellow, green, pink, purple, cyan, orange.
+  return `You group a person's browser tabs the way a thoughtful assistant would.
 
-Reply with JSON only, using the exact IDs above:
-{"groups":[{"name":"Group Name","color":"blue","tabIds":[1,2]}]}
+TABS
+${tabList}
 
-${tabList}`;
+HOW TO GROUP
+- Group by what the person is WORKING ON: a project, a decision, a task, a thing being researched.
+- Do NOT group by website. The same site can belong to several groups, and one group can span many sites.
+- Two GitHub tabs about different projects belong apart. Same for Linear, Figma, Gmail, Notion.
+- The repository name, issue key, project name, or thread subject in the title tells you what the work is. The domain does not.
+- Name the group after the work, not the site. "Billing webhook retries" is good; "GitHub" or "Email" is not.
+- 2+ tabs per group. Leave genuinely unrelated tabs out rather than inventing a "Misc" group.
+
+Colors: grey, blue, red, yellow, green, pink, purple, cyan, orange.
+
+Reply with JSON only:
+{"groups":[{"name":"Billing webhook retries","color":"blue","why":"Stripe docs, the Stripe dashboard, and the billing-service issue are all about retry failures","tabIds":[4,5,6,8]}]}`;
 }

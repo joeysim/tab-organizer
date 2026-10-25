@@ -624,6 +624,7 @@ export function renderAIPreview(suggestions: { groups: Array<{ name: string; col
     gc.className = 'group-count';
     gc.textContent = `${group.tabs.length} tab${group.tabs.length !== 1 ? 's' : ''}`;
     header.append(dot, nm, gc);
+    const why = (group as unknown as { why?: string }).why;
 
     const tabsList = document.createElement('div');
     tabsList.className = 'ai-group-tabs';
@@ -646,6 +647,12 @@ export function renderAIPreview(suggestions: { groups: Array<{ name: string; col
     });
 
     groupEl.appendChild(header);
+    if (why) {
+      const whyEl = document.createElement('div');
+      whyEl.className = 'ai-group-why';
+      whyEl.textContent = why;
+      groupEl.appendChild(whyEl);
+    }
     groupEl.appendChild(tabsList);
     previewContent.appendChild(groupEl);
   });

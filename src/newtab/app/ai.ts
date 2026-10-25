@@ -23,6 +23,72 @@ type UndoSnapshot = {
 
 let undoSnapshot: UndoSnapshot | null = null;
 
+/** Conversation for the AI pane: user requests and what the extension did. */
+type Turn = { role: 'user' | 'bot'; text: string; points?: string[]; meta?: string };
+let thread: Turn[] = [];
+
+function threadEl(): HTMLElement | null {
+  return document.getElementById('aiThread');
+}
+
+export function renderThread(): void {
+  const el = threadEl();
+  if (!el) return;
+  el.textContent = '';
+  if (thread.length === 0) {
+    const p = document.createElement('p');
+    p.className = 'ai-thread-empty';
+    p.textContent = 'Ask for anything: “close all gmail tabs”, “group my tabs by project”, “save this session”.';
+    el.appendChild(p);
+    return;
+  }
+  for (const turn of thread) {
+    const msg = document.createElement('div');
+    msg.className = `ai-msg ai-msg-${turn.role}`;
+    const body = document.createElement('span');
+    body.textContent = turn.text;
+    msg.appendChild(body);
+    if (turn.points?.length) {
+      const ul = document.createElement('ul');
+      ul.className = 'ai-msg-list';
+      for (const point of turn.points) {
+        const li = document.createElement('li');
+        li.textContent = point;
+        ul.appendChild(li);
+      }
+      msg.appendChild(ul);
+    }
+    if (turn.meta) {
+      const meta = document.createElement('span');
+      meta.className = 'ai-msg-meta';
+      meta.textContent = turn.meta;
+      msg.appendChild(meta);
+    }
+    el.appendChild(msg);
+  }
+  el.scrollTop = el.scrollHeight;
+}
+
+function pushTurn(turn: Turn): void {
+  thread.push(turn);
+  if (thread.length > 20) thread = thread.slice(-20);
+  renderThread();
+}
+
+/** Recent turns, so a follow-up like "now do the same for figma" still lands. */
+function historyForPrompt(): string {
+  if (thread.length === 0) return '';
+  return thread
+    .slice(-6)
+    .map((t) => `${t.role === 'user' ? 'user' : 'you'}: ${t.text}`)
+    .join('\n');
+}
+
+export function resetThread(): void {
+  thread = [];
+  renderThread();
+}
+
 function planTabs(): PlanTab[] {
   return state.tabs
     .filter((t) => /^https?:/i.test(t.url))
@@ -37,11 +103,11 @@ function planTabs(): PlanTab[] {
 }
 
 function setProgress(active: boolean, label: string): void {
-  const bar = document.getElementById('aiProgress');
+  const bar = document.getElementById('aiPlanProgress');
   clearInterval(progressTimer);
   if (bar) bar.classList.toggle('active', active);
   if (!active) return;
-  const summary = document.getElementById('aiPreviewSummary');
+  const summary = document.getElementById('aiPlanSummary');
   const started = Date.now();
   const tick = () => {
     if (!summary) return;
@@ -62,7 +128,7 @@ export function closePlanModal(): void {
   planAbort?.abort();
   planAbort = null;
   clearInterval(progressTimer);
-  document.getElementById('aiProgress')?.classList.remove('active');
+  document.getElementById('aiPlanProgress')?.classList.remove('active');
   document.getElementById('modalOverlay')?.classList.remove('active');
   document.querySelectorAll('.modal').forEach((m) => ((m as HTMLElement).style.display = 'none'));
 }
@@ -81,9 +147,9 @@ export async function runPlan(request: string): Promise<void> {
   const tabs = planTabs();
 
   showModal();
-  const summary = document.getElementById('aiPreviewSummary');
+  const summary = document.getElementById('aiPlanSummary');
   const approve = document.getElementById('approvePlanBtn') as HTMLButtonElement | null;
-  const content = document.getElementById('aiPreviewContent');
+  const content = document.getElementById('aiPlanContent');
   if (summary) summary.textContent = 'Planning…';
   if (approve) { approve.disabled = true; approve.textContent = 'Planning…'; }
   if (content) {
@@ -96,16 +162,31 @@ export async function runPlan(request: string): Promise<void> {
     const providerName = (state.settings as unknown as { aiProvider?: 'claude' | 'lunaroute' }).aiProvider ?? 'lunaroute';
     const { getProvider } = await import('../../lib/ai/provider.js');
     const provider = await getProvider(providerName);
-    const result = await provider.planActions(text, tabs, state.settings.apiKey, { signal: ctrl.signal });
+    const history = historyForPrompt();
+    const request = history
+      ? `Earlier in this conversation:\n${history}\n\nCurrent request: ${text}`
+      : text;
+    const result = await provider.planActions(request, tabs, state.settings.apiKey, { signal: ctrl.signal });
     if (ctrl !== planAbort) return;
     planAbort = null;
     setProgress(false, '');
     plan = result;
+    pushTurn({ role: 'user', text });
+    pushTurn({
+      role: 'bot',
+      text: result.summary || (result.actions.length ? 'Here is what I would do.' : 'I could not do that with the tools I have.'),
+      points: result.actions.map((a) => a.description),
+      meta: result.actions.length
+        ? `${result.actions.length} action${result.actions.length === 1 ? '' : 's'} · review before applying`
+        : undefined,
+    });
     renderPlan(result);
   } catch (error) {
     if (ctrl !== planAbort) return;
     planAbort = null;
     setProgress(false, '');
+    pushTurn({ role: 'user', text });
+    pushTurn({ role: 'bot', text: `That failed: ${(error as Error).name === 'TimeoutError' ? 'request timed out' : (error as Error).message}` });
     if (summary) summary.textContent = 'Failed';
     if (approve) { approve.disabled = true; approve.textContent = 'Nothing to approve'; }
     if (content) {
@@ -156,8 +237,8 @@ function tabRow(tabId: number): HTMLElement | null {
 }
 
 export function renderPlan(result: ResolvedPlan): void {
-  const content = document.getElementById('aiPreviewContent');
-  const summary = document.getElementById('aiPreviewSummary');
+  const content = document.getElementById('aiPlanContent');
+  const summary = document.getElementById('aiPlanSummary');
   const approve = document.getElementById('approvePlanBtn') as HTMLButtonElement | null;
   if (!content) return;
   content.textContent = '';
@@ -255,6 +336,11 @@ export async function approvePlan(): Promise<void> {
   const parts: string[] = [];
   if (snapshot.closedTabs.length) parts.push(`closed ${snapshot.closedTabs.length}`);
   if (snapshot.createdGroupIds.length) parts.push(`${snapshot.createdGroupIds.length} group${snapshot.createdGroupIds.length === 1 ? '' : 's'}`);
+  pushTurn({
+    role: 'bot',
+    text: parts.length ? `Done — ${parts.join(', ')}.` : 'Plan applied.',
+    meta: 'Undo is available for 20s',
+  });
   showToast(parts.length ? `Done — ${parts.join(', ')}` : 'Plan applied', 'success');
   showUndoBar();
 }
@@ -368,6 +454,7 @@ export async function undoPlan(): Promise<void> {
     if (snap.closedTabs.length) {
       await chrome.runtime.sendMessage({ action: 'reopenTabs', tabs: snap.closedTabs });
     }
+    pushTurn({ role: 'bot', text: 'Undone.' });
     showToast('Undone', 'success');
   } catch (error) {
     showToast(`Undo failed: ${(error as Error).message}`, 'error');

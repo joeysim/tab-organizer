@@ -103,6 +103,13 @@ function setupEventListeners(): void {
         showSettingsModal();
         return;
       }
+      // grouping gets the editable preview (drag / remove / rename per group);
+      // free-form requests get the plan preview with approve + undo
+      if (btn.dataset.action === 'group') {
+        const { handleAIOrganize } = await import('./app/collections.js');
+        await handleAIOrganize();
+        return;
+      }
       const { runPlan } = await import('./app/ai.js');
       await runPlan(btn.dataset.prompt || btn.textContent || '');
     });
@@ -120,6 +127,10 @@ function setupEventListeners(): void {
     const { closePlanModal } = await import('./app/ai.js');
     closePlanModal();
   });
+  document.getElementById('aiPaneCollapse')?.addEventListener('click', () => {
+    document.getElementById('aiPane')?.classList.toggle('collapsed');
+  });
+
   document.getElementById('undoBtn')?.addEventListener('click', async () => {
     const { undoPlan } = await import('./app/ai.js');
     await undoPlan();
