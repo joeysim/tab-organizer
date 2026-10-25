@@ -25,9 +25,14 @@ without leaving the browser and without a backend.
   organize in the dashboard shows up in the tab strip and survives in the browser.
 - **Collections** — saves a selection of tabs as named links you can reopen, copy, or
   export as Markdown. Stored locally in the extension.
+- **AI recipes** — the extension's primitives (close, group, move, ungroup, save,
+  focus) are described to the model as tools. You type a request; it returns a plan;
+  you see the exact tabs each step will touch and approve it. Destructive steps are
+  marked, and an undo bar restores closed tabs, removes created groups, and returns
+  moved tabs to their previous group.
 - **AI organize** — sends only your *ungrouped* tabs to a model and shows the proposed
   groups in an editable preview: drag tabs between groups, move them to Ungrouped,
-  rename groups, then approve. Nothing changes in the browser until you press create.
+  rename groups, then approve.
 - **Provider choice** — LunaRoute (default) or direct Claude, with the key you supply.
 
 ## Design decisions
@@ -47,6 +52,13 @@ browser stays the source of truth.
 destructive and slow. The model sees `groupId === -1` tabs and nothing else, so an
 existing group is never touched. If everything is grouped, the call is skipped
 entirely.
+
+**Plans target selectors, not id lists.** A recipe says "all mail.google.com tabs",
+not twelve hardcoded ids, so it keeps working as tabs open and close. Selectors are
+resolved against live tabs before the preview, which is why the preview can show you
+exactly what will change. A malformed or empty selector resolves to *nothing* rather
+than everything — the failure mode of a bad plan is doing too little, never a mass
+close.
 
 **An editable preview, not auto-apply.** AI grouping is a suggestion. Showing it as a
 draft you can rearrange and then explicitly approve keeps a wrong guess cheap — you
