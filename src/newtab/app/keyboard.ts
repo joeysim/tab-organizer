@@ -1,6 +1,7 @@
 // keyboard.ts — setupKeyboardNavigation + updateFocusedCard preserved from newtab.js
 import { toggleTabSelection, activateTab, closeTab, deselectAllTabs, selectAllTabs } from './tabs.js';
 import { state } from './state.js';
+import { labIsOpen, closeLab, moveLab, activateCurrentRow } from './lab.js';
 import { showGroupModal, showCollectionModal, hideModal } from './modals.js';
 
 function updateFocusedCard(cards: Element[], index: number): void {
@@ -15,16 +16,17 @@ export { updateFocusedCard };
 export function setupKeyboardNavigation(): void {
   let focusedIndex = -1;
 
-  document.addEventListener('keydown', async (e) => {
-    // The Lab takes the keyboard while it is open
-    const lab = await import('./lab.js');
-    if (lab.labIsOpen()) {
-      if (e.key === 'Escape') { e.preventDefault(); lab.closeLab(); return; }
-      if (e.key === 'ArrowDown') { e.preventDefault(); lab.moveLab(1); return; }
-      if (e.key === 'ArrowUp') { e.preventDefault(); lab.moveLab(-1); return; }
+  document.addEventListener('keydown', (e) => {
+    // The Lab takes the keyboard while it is open.
+    // Everything here is synchronous up to preventDefault(): an await before it
+    // would let the browser run the default action (scroll, select-all) first.
+    if (labIsOpen()) {
+      if (e.key === 'Escape') { e.preventDefault(); closeLab(); return; }
+      if (e.key === 'ArrowDown') { e.preventDefault(); moveLab(1); return; }
+      if (e.key === 'ArrowUp') { e.preventDefault(); moveLab(-1); return; }
       if (e.key === 'Enter' && (e.target as HTMLElement).tagName !== 'INPUT') {
         e.preventDefault();
-        await lab.activateCurrentRow();
+        void activateCurrentRow();
         return;
       }
     }

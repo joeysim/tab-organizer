@@ -167,6 +167,8 @@ function tabRow(tabId: number): HTMLElement | null {
 }
 
 export function renderPlan(result: ResolvedPlan): void {
+  // single source of truth: what is on screen is what Approve will run
+  plan = result;
   const content = document.getElementById('aiPlanContent');
   const summary = document.getElementById('aiPlanSummary');
   const approve = document.getElementById('approvePlanBtn') as HTMLButtonElement | null;
@@ -245,19 +247,29 @@ export function renderPlan(result: ResolvedPlan): void {
 
 /** Execute an approved plan, recording inverses as we go. */
 export async function approvePlan(): Promise<void> {
-  if (!plan || plan.actions.length === 0) return;
+  // Claim the plan before the first await: a second click must be a no-op,
+  // not a second run of the same actions.
+  const running = plan;
+  if (!running || running.actions.length === 0) return;
+  plan = null;
+  const approveBtn = document.getElementById('approvePlanBtn') as HTMLButtonElement | null;
+  if (approveBtn) {
+    approveBtn.disabled = true;
+    approveBtn.textContent = 'Applying…';
+  }
+
   const snapshot: UndoSnapshot = { closedTabs: [], createdGroupIds: [], movedTabs: [] };
+  let stopped: string | null = null;
 
   try {
-    for (const item of plan.actions) {
+    for (const item of running.actions) {
       await executeAction(item, snapshot);
     }
   } catch (error) {
-    showToast(`Stopped: ${(error as Error).message}`, 'error');
+    stopped = (error as Error).message;
   }
 
   undoSnapshot = snapshot;
-  plan = null;
   closePlanModal();
 
   const { loadTabs } = await import('./render.js');
@@ -266,8 +278,30 @@ export async function approvePlan(): Promise<void> {
   const parts: string[] = [];
   if (snapshot.closedTabs.length) parts.push(`closed ${snapshot.closedTabs.length}`);
   if (snapshot.createdGroupIds.length) parts.push(`${snapshot.createdGroupIds.length} group${snapshot.createdGroupIds.length === 1 ? '' : 's'}`);
-  showToast(parts.length ? `Done — ${parts.join(', ')}` : 'Plan applied', 'success');
-  showUndoBar();
+  const didSomething = parts.length > 0 || snapshot.movedTabs.length > 0;
+
+  if (stopped) {
+    // say what actually happened; never report success after a failure
+    showToast(didSomething ? `Stopped — ${parts.join(', ') || 'partial'}: ${stopped}` : `Stopped: ${stopped}`, 'error');
+  } else {
+    showToast(parts.length ? `Done — ${parts.join(', ')}` : 'Plan applied', 'success');
+  }
+  if (didSomething) showUndoBar();
+}
+
+/**
+ * Send a background action and surface its error.
+ * The background catches its own failures and replies {error}, so a resolved
+ * promise does not mean the action worked.
+ */
+async function send(message: Record<string, unknown>): Promise<Record<string, unknown>> {
+  const res = (await chrome.runtime.sendMessage(message)) as Record<string, unknown> | undefined;
+  if (res && typeof res.error === 'string') throw new Error(res.error);
+  return res ?? {};
+}
+
+function rememberPreviousGroups(tabs: ResolvedAction['tabs'], snapshot: UndoSnapshot): void {
+  for (const t of tabs) snapshot.movedTabs.push({ tabId: t.id, previousGroupId: t.groupId });
 }
 
 async function executeAction(item: ResolvedAction, snapshot: UndoSnapshot): Promise<void> {
@@ -276,18 +310,23 @@ async function executeAction(item: ResolvedAction, snapshot: UndoSnapshot): Prom
 
   switch (action.tool) {
     case 'closeTabs': {
+      await send({ action: 'closeTabs', tabIds });
+      // only after it worked: undo must not reopen tabs that never closed
       snapshot.closedTabs.push(...tabs.map((t) => ({ url: t.url, title: t.title })));
-      await chrome.runtime.sendMessage({ action: 'closeTabs', tabIds });
       return;
     }
     case 'createGroup': {
-      const res = (await chrome.runtime.sendMessage({
+      const res = await send({
         action: 'createGroup',
         name: action.name || 'Group',
         color: action.color || 'blue',
         tabIds,
-      })) as { groupId?: number };
-      if (res?.groupId !== undefined) snapshot.createdGroupIds.push(res.groupId);
+      });
+      if (typeof res.groupId === 'number') {
+        snapshot.createdGroupIds.push(res.groupId);
+        // deleting the new group only ungroups: remember where these tabs were
+        rememberPreviousGroups(tabs, snapshot);
+      }
       return;
     }
     case 'moveToGroup': {
@@ -296,22 +335,20 @@ async function executeAction(item: ResolvedAction, snapshot: UndoSnapshot): Prom
       );
       if (!target) {
         // no such group yet: create it from these tabs instead of failing
-        const res = (await chrome.runtime.sendMessage({
-          action: 'createGroup',
-          name: action.group || 'Group',
-          color: 'blue',
-          tabIds,
-        })) as { groupId?: number };
-        if (res?.groupId !== undefined) snapshot.createdGroupIds.push(res.groupId);
+        const res = await send({ action: 'createGroup', name: action.group || 'Group', color: 'blue', tabIds });
+        if (typeof res.groupId === 'number') {
+          snapshot.createdGroupIds.push(res.groupId);
+          rememberPreviousGroups(tabs, snapshot);
+        }
         return;
       }
-      for (const t of tabs) snapshot.movedTabs.push({ tabId: t.id, previousGroupId: t.groupId });
-      await chrome.runtime.sendMessage({ action: 'moveToGroup', groupId: target.id, tabIds });
+      await send({ action: 'moveToGroup', groupId: target.id, tabIds });
+      rememberPreviousGroups(tabs, snapshot);
       return;
     }
     case 'ungroupTabs': {
-      for (const t of tabs) snapshot.movedTabs.push({ tabId: t.id, previousGroupId: t.groupId });
-      await chrome.runtime.sendMessage({ action: 'ungroup', tabIds });
+      await send({ action: 'ungroup', tabIds });
+      rememberPreviousGroups(tabs, snapshot);
       return;
     }
     case 'saveCollection': {
@@ -323,7 +360,7 @@ async function executeAction(item: ResolvedAction, snapshot: UndoSnapshot): Prom
       return;
     }
     case 'activateTab': {
-      await chrome.runtime.sendMessage({ action: 'activateTab', tabId: tabs[0].id });
+      await send({ action: 'activateTab', tabId: tabs[0].id });
       return;
     }
     default:
