@@ -17,6 +17,9 @@ export type TabInput = {
 export interface AIProvider {
   readonly name?: AIProviderName;
   organizeTabs(tabs: TabInput[], apiKey: string, opts?: { signal?: AbortSignal }): Promise<{ groups: GroupSuggestion[] }>;
+  /** One plain completion: used for per-page summaries, and anything else that
+   *  needs text rather than a validated plan. */
+  complete(prompt: string, apiKey: string, opts?: { signal?: AbortSignal; maxTokens?: number }): Promise<string>;
   /** Turn a natural-language request into a validated, previewable plan. */
   planActions(
     request: string,

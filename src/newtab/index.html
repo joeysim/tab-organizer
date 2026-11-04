@@ -272,6 +272,25 @@
       </div>
     </div>
 
+    <div class="modal modal-large" id="summaryModal" style="display: none;" role="dialog" aria-modal="true" aria-labelledby="summaryTitle">
+      <div class="modal-header">
+        <div class="modal-header-left">
+          <span class="modal-icon">📄</span>
+          <div>
+            <h3 id="summaryTitle">Tab summaries</h3>
+            <p class="modal-subtitle" id="summarySubtitle">Reading pages…</p>
+          </div>
+        </div>
+        <button class="modal-close" id="closeSummaryModal" aria-label="Close">&times;</button>
+      </div>
+      <div class="ai-progress" id="summaryProgress" aria-hidden="true"><div class="ai-progress-bar"></div></div>
+      <div class="modal-body"><div id="summaryList" class="summary-list"></div></div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" id="copySummariesBtn">Copy as Markdown</button>
+        <button class="btn btn-primary" id="closeSummaryBtn">Close</button>
+      </div>
+    </div>
+
     <div class="modal modal-large" id="aiPreviewModal" style="display: none;" role="dialog" aria-modal="true" aria-labelledby="aiPreviewTitle">
       <div class="modal-header">
         <div class="modal-header-left">

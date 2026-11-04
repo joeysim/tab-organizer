@@ -96,14 +96,8 @@ function setupEventListeners(): void {
     if (target.closest('.lab-ask')) return; // composer handles its own submit
     const row = target.closest('.lab-row') as HTMLElement | null;
     if (!row) return;
-    const { runPrompt } = await import('./app/lab.js');
-    if (row.classList.contains('lab-guide')) {
-      const { setCard } = await import('./app/lab.js');
-      setCard('The Lab', 'ready', 'Recipes and suggestions run a plan you approve first. Nothing changes on its own.');
-      window.setTimeout(() => void import('./app/lab.js').then((m) => m.clearCard()), 4000);
-      return;
-    }
-    await runPrompt(row.dataset.prompt || '', row.dataset.group === '1');
+    const { runRecipe } = await import('./app/lab.js');
+    await runRecipe(row);
   });
   document.addEventListener('click', async (e) => {
     const target = e.target as HTMLElement;
@@ -124,6 +118,20 @@ function setupEventListeners(): void {
     const { closePlanModal } = await import('./app/ai.js');
     closePlanModal();
   });
+  document.getElementById('closeSummaryModal')?.addEventListener('click', async () => {
+    const { closeSummaries } = await import('./app/ai.js');
+    closeSummaries();
+  });
+  document.getElementById('closeSummaryBtn')?.addEventListener('click', async () => {
+    const { closeSummaries } = await import('./app/ai.js');
+    closeSummaries();
+  });
+  document.getElementById('copySummariesBtn')?.addEventListener('click', async () => {
+    const { summariesAsMarkdown } = await import('./app/ai.js');
+    await navigator.clipboard.writeText(summariesAsMarkdown());
+    showToast('Summaries copied', 'success');
+  });
+
   document.getElementById('undoBtn')?.addEventListener('click', async () => {
     const { undoPlan } = await import('./app/ai.js');
     await undoPlan();

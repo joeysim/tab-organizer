@@ -105,6 +105,33 @@ export const LunaRouteProvider: AIProvider = {
     }
   },
 
+  async complete(prompt: string, apiKey: string, opts?: { signal?: AbortSignal; maxTokens?: number }): Promise<string> {
+    if (!apiKey) throw new Error('API key is required');
+    const signal = opts?.signal
+      ? AbortSignal.any([AbortSignal.timeout(LUNAROUTE_TIMEOUT_MS), opts.signal])
+      : AbortSignal.timeout(LUNAROUTE_TIMEOUT_MS);
+    const base = { model: LUNAROUTE_MODEL, input: prompt, max_output_tokens: opts?.maxTokens ?? 2000 };
+    const post = (body: Record<string, unknown>) =>
+      fetch(LUNAROUTE_API_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}` },
+        body: JSON.stringify(body),
+        signal,
+      });
+
+    let response = await post({ ...base, reasoning: { effort: 'low' } });
+    if (response.status === 400) response = await post(base);
+    if (!response.ok) {
+      const err = await (response.json() as Promise<Record<string, unknown>>).catch(() => ({}));
+      throw new Error(
+        (err as { error?: { message?: string } }).error?.message || `API error: ${response.status}`,
+      );
+    }
+    const result = (await response.json()) as Record<string, unknown>;
+    if (result.status === 'incomplete') throw new Error('Response was truncated');
+    return extractText(result) ?? '';
+  },
+
   async planActions(
     request: string,
     tabs: PlanTab[],

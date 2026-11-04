@@ -62,6 +62,9 @@ export type Plan = {
 /** Destructive actions get a warning treatment in the preview. */
 export const DESTRUCTIVE_TOOLS: ReadonlySet<ToolName> = new Set<ToolName>(['closeTabs']);
 
+/** Upper bound on actions in one plan, so a hostile page cannot bury the review. */
+export const MAX_PLAN_ACTIONS = 25;
+
 export type ToolSpec = {
   name: ToolName;
   description: string;
@@ -201,7 +204,8 @@ export function validatePlan(raw: unknown, tabs: PlanTab[]): ResolvedPlan {
   }
 
   const actions: ResolvedAction[] = [];
-  for (const item of rawActions) {
+  // a steered or runaway plan should be reviewable, not 200 cards long
+  for (const item of rawActions.slice(0, MAX_PLAN_ACTIONS)) {
     const a = item as Record<string, unknown>;
     const tool = String(a.tool ?? '') as ToolName;
     const spec = TOOL_CATALOG.find((t) => t.name === tool);
@@ -253,16 +257,38 @@ export function validatePlan(raw: unknown, tabs: PlanTab[]): ResolvedPlan {
   };
 }
 
+/**
+ * Tab titles and URLs are written by websites, not by the user. Anything we put
+ * in a prompt must be flattened to one line and stripped of the characters that
+ * could close our data block or start a new inventory row.
+ */
+export function safeText(value: string, max = 200): string {
+  return String(value ?? '')
+    // control chars (incl. \n / \r) would let a title forge a new inventory line
+    .replace(/[\u0000-\u001f\u007f]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .replace(/[<>]/g, (c) => (c === '<' ? '\u2039' : '\u203A')) // can't close the <tabs> block
+    .replace(/\[ID:/gi, '(ID:') // can't impersonate an inventory row
+    .replace(/```/g, "'''") // can't start a code fence
+    .trim()
+    .slice(0, max);
+}
+
+/** Wrap untrusted page data so the rules can say exactly what is data. */
+export function dataBlock(name: string, body: string): string {
+  return `<${name}>\n${body}\n</${name}>`;
+}
+
 /** Compact inventory so the model can reason about what exists. */
 export function buildInventory(tabs: PlanTab[]): string {
   return tabs
     .map((t) => {
-      const host = hostOf(t.url) || 'unknown';
+      const host = safeText(hostOf(t.url) || 'unknown', 80);
       const flags = [
-        t.groupId !== -1 ? `group:${t.groupName || t.groupId}` : '',
+        t.groupId !== -1 ? `group:${safeText(t.groupName || String(t.groupId), 40)}` : '',
         t.pinned ? 'pinned' : '',
       ].filter(Boolean).join(' ');
-      return `[ID:${t.id}] ${t.title || '(untitled)'} | ${host}${flags ? ` | ${flags}` : ''}`;
+      return `[ID:${t.id}] ${safeText(t.title) || '(untitled)'} | ${host}${flags ? ` | ${flags}` : ''}`;
     })
     .join('\n');
 }

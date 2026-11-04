@@ -12,7 +12,7 @@ import { showToast } from './toast.js';
 
 type Row =
   | { kind: 'guide' }
-  | { kind: 'recipe'; label: string; note: string; prompt?: string; group?: boolean }
+  | { kind: 'recipe'; label: string; note: string; prompt?: string; group?: boolean; summarize?: boolean }
   | { kind: 'proposal'; label: string; note: string; prompt?: string; group?: boolean };
 
 let open = false;
@@ -34,6 +34,7 @@ function bakedRecipes(): Row[] {
     { kind: 'recipe', label: 'Group tabs by project', note: 'not by website', group: true },
     { kind: 'recipe', label: 'Close duplicate tabs', note: 'one per URL', prompt: 'Close duplicate tabs, keeping one per URL' },
     { kind: 'recipe', label: 'Save this session', note: 'as a collection of links', prompt: 'Save all my open tabs as a collection called Session' },
+    { kind: 'recipe', label: 'Summarize my tabs', note: 'one line per page', summarize: true },
   ];
 }
 
@@ -120,6 +121,7 @@ function buildMenu(): void {
       node.classList.add(row.kind === 'proposal' ? 'lab-idea' : 'lab-recipe');
       node.dataset.prompt = row.prompt ?? '';
       if (row.group) node.dataset.group = '1';
+      if (row.kind === 'recipe' && row.summarize) node.dataset.summarize = '1';
       node.append(el('span', 'lab-label', row.label), el('span', 'lab-note', row.note));
     }
     menu.appendChild(node);
@@ -210,6 +212,22 @@ export async function activateCurrentRow(): Promise<void> {
 async function runRow(row: HTMLElement): Promise<void> {
   if (row.classList.contains('lab-guide')) {
     showToast('The Lab runs one of these, or anything you type. Nothing changes until you approve.', 'success');
+    return;
+  }
+  await runRecipe(row);
+}
+
+/** Shared by the click path and the keyboard path, so both behave the same. */
+export async function runRecipe(row: HTMLElement): Promise<void> {
+  if (row.dataset.summarize === '1') {
+    closeLab();
+    setCard('Summarizing tabs', 'reading pages…', 'One line per page. Content never leaves the browser except as the summary.');
+    try {
+      const { showSummaries } = await import('./ai.js');
+      await showSummaries();
+    } finally {
+      clearCard();
+    }
     return;
   }
   await runPrompt(row.dataset.prompt || '', row.dataset.group === '1');

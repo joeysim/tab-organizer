@@ -424,3 +424,145 @@ export async function undoPlan(): Promise<void> {
   const { loadTabs } = await import('./render.js');
   await loadTabs(false);
 }
+
+/* ---------- summaries ---------- */
+
+let summaryAbort: AbortController | null = null;
+
+function summaryHost(url: string): string {
+  try { return new URL(url).hostname.replace(/^www\./, ''); } catch { return url; }
+}
+
+/**
+ * Read the open tabs and turn each into one line. Content stays here: it is not
+ * sent to the planner, only the summaries are (and only when asked for).
+ */
+export async function showSummaries(): Promise<void> {
+  summaryAbort?.abort();
+  const ctrl = (summaryAbort = new AbortController());
+  const tabs = state.tabs
+    .filter((t) => /^https?:/i.test(t.url))
+    .map((t) => ({ id: t.id, url: t.url, title: t.title || '' }));
+
+  const modal = document.getElementById('summaryModal');
+  const list = document.getElementById('summaryList');
+  const subtitle = document.getElementById('summarySubtitle');
+  const progress = document.getElementById('summaryProgress');
+  if (!modal || !list) return;
+
+  document.getElementById('modalOverlay')?.classList.add('active');
+  document.querySelectorAll('.modal').forEach((m) => ((m as HTMLElement).style.display = 'none'));
+  modal.style.display = 'flex';
+  progress?.classList.add('active');
+
+  if (!state.settings.apiKey) {
+    subtitle && (subtitle.textContent = 'Add an API key in Settings first');
+    progress?.classList.remove('active');
+    return;
+  }
+  if (tabs.length === 0) {
+    subtitle && (subtitle.textContent = 'No readable tabs');
+    progress?.classList.remove('active');
+    return;
+  }
+
+  list.innerHTML = `<div class="ai-skeleton-group">${Array.from({ length: 3 }).map(() => `
+    <div class="ai-skeleton-card"><div class="ai-skeleton-line head"></div><div class="ai-skeleton-line"></div></div>`).join('')}</div>`;
+  const started = Date.now();
+  const tick = window.setInterval(() => {
+    if (subtitle) subtitle.textContent = `Reading ${tabs.length} page${tabs.length === 1 ? '' : 's'} · ${Math.floor((Date.now() - started) / 1000)}s`;
+  }, 500);
+  if (subtitle) subtitle.textContent = `Reading ${tabs.length} page${tabs.length === 1 ? '' : 's'}…`;
+
+  try {
+    const providerName = (state.settings as unknown as { aiProvider?: 'claude' | 'lunaroute' }).aiProvider ?? 'lunaroute';
+    const { summarizeTabs } = await import('../../lib/ai/summarize.js');
+    const rows = await summarizeTabs(tabs, state.settings.apiKey, providerName, { signal: ctrl.signal });
+    if (ctrl !== summaryAbort) return;
+    summaryAbort = null;
+    renderSummaries(rows, subtitle);
+  } catch (error) {
+    if (ctrl !== summaryAbort) return;
+    summaryAbort = null;
+    if (subtitle) subtitle.textContent = `Failed: ${(error as Error).message}`;
+    list.textContent = '';
+    const p = document.createElement('p');
+    p.className = 'ai-hint';
+    p.textContent = 'Check your API key and provider in Settings, then try again.';
+    list.appendChild(p);
+  } finally {
+    window.clearInterval(tick);
+    progress?.classList.remove('active');
+  }
+}
+
+type SummaryRow = { tabId: number; url: string; title: string; summary: string; cached: boolean; error?: string };
+
+export function renderSummaries(rows: SummaryRow[], subtitle?: HTMLElement | null): void {
+  const list = document.getElementById('summaryList');
+  if (!list) return;
+  list.textContent = '';
+
+  const done = rows.filter((r) => r.summary).length;
+  const cached = rows.filter((r) => r.cached).length;
+  const target = subtitle ?? document.getElementById('summarySubtitle');
+  if (target) {
+    const bits = [`${done} of ${rows.length} summarised`];
+    if (cached) bits.push(`${cached} from cache`);
+    target.textContent = bits.join(' · ');
+  }
+
+  for (const row of rows) {
+    const el = document.createElement('div');
+    el.className = 'summary-row';
+
+    const left = document.createElement('div');
+    left.className = 'summary-tab';
+    const title = document.createElement('span');
+    title.className = 'summary-tab-title';
+    title.textContent = row.title || row.url;
+    title.title = row.url;
+    const host = document.createElement('span');
+    host.className = 'summary-tab-host';
+    host.textContent = summaryHost(row.url);
+    left.append(title, host);
+
+    const right = document.createElement('div');
+    right.className = 'summary-text';
+    if (row.summary) {
+      right.textContent = row.summary;
+      if (row.cached) {
+        const tag = document.createElement('span');
+        tag.className = 'summary-cached';
+        tag.textContent = ' · cached';
+        right.appendChild(tag);
+      }
+    } else {
+      right.classList.add('empty');
+      right.textContent = row.error ? `Could not read: ${row.error}` : 'Nothing readable on this page';
+    }
+
+    el.append(left, right);
+    list.appendChild(el);
+  }
+}
+
+export function closeSummaries(): void {
+  summaryAbort?.abort();
+  summaryAbort = null;
+  document.getElementById('modalOverlay')?.classList.remove('active');
+  document.querySelectorAll('.modal').forEach((m) => ((m as HTMLElement).style.display = 'none'));
+}
+
+/** Markdown of the current summaries, for the Copy button. */
+export function summariesAsMarkdown(): string {
+  const rows = Array.from(document.querySelectorAll('#summaryList .summary-row'));
+  return rows
+    .map((row) => {
+      const title = row.querySelector('.summary-tab-title')?.textContent ?? '';
+      const host = row.querySelector('.summary-tab-host')?.textContent ?? '';
+      const text = row.querySelector('.summary-text')?.textContent?.replace(/ · cached$/, '') ?? '';
+      return `- **${title}** (${host}) — ${text}`;
+    })
+    .join('\n');
+}

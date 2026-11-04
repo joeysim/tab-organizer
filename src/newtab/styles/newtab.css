@@ -1784,3 +1784,27 @@ body {
 .lab-card-title { display: flex; gap: 6px; align-items: baseline; font-size: 13px; font-weight: 600; }
 .lab-card-state { font-size: 11px; font-weight: 400; color: var(--accent-color); }
 .lab-card-hint { margin: 2px 0 0; font-size: 11px; color: var(--text-muted); line-height: 1.4; }
+
+/* ---------- Tab summaries ---------- */
+.summary-list { display: flex; flex-direction: column; gap: 2px; }
+.summary-row {
+  display: flex;
+  gap: 10px;
+  align-items: baseline;
+  padding: 6px 4px;
+  border-bottom: 1px solid var(--border-color);
+}
+.summary-row:last-child { border-bottom: none; }
+.summary-tab { flex: 0 0 38%; min-width: 0; }
+.summary-tab-title {
+  display: block;
+  font-size: 12px;
+  font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.summary-tab-host { display: block; font-size: 11px; color: var(--text-muted); }
+.summary-text { flex: 1; font-size: 12px; line-height: 1.45; color: var(--text-secondary); }
+.summary-text.empty { color: var(--text-muted); font-style: italic; }
+.summary-cached { font-size: 10px; color: var(--text-muted); }

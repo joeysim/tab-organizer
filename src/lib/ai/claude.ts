@@ -4,6 +4,9 @@ import { buildPlanPrompt } from './prompts/plan.js';
 import { parsePlanResponse } from './tools.js';
 import type { PlanTab, ResolvedPlan } from './tools.js';
 
+/** Same ceiling as LunaRoute, so a hung request cannot spin forever. */
+const CLAUDE_TIMEOUT_MS = 45_000;
+
 export function validateColor(color: unknown): string {
   const validColors = ['grey', 'blue', 'red', 'yellow', 'green', 'pink', 'purple', 'cyan', 'orange'];
   const normalized = String(color).toLowerCase().trim();
@@ -96,6 +99,36 @@ export const ClaudeProvider: AIProvider = {
     }
 
     return parseResponse(content, tabs);
+  },
+
+  async complete(prompt: string, apiKey: string, opts?: { signal?: AbortSignal; maxTokens?: number }): Promise<string> {
+    if (!apiKey) throw new Error('API key is required');
+    const signal = opts?.signal
+      ? AbortSignal.any([AbortSignal.timeout(CLAUDE_TIMEOUT_MS), opts.signal])
+      : AbortSignal.timeout(CLAUDE_TIMEOUT_MS);
+    const response = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': apiKey,
+        'anthropic-version': '2023-06-01',
+        'anthropic-dangerous-direct-browser-access': 'true',
+      },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: opts?.maxTokens ?? 1024,
+        messages: [{ role: 'user', content: prompt }],
+      }),
+      signal,
+    });
+    if (!response.ok) {
+      const error = await (response.json() as Promise<Record<string, unknown>>).catch(() => ({}));
+      throw new Error(
+        (error as { error?: { message?: string } }).error?.message || `API error: ${response.status}`,
+      );
+    }
+    const result = (await response.json()) as { content?: Array<{ text?: string }> };
+    return result.content?.[0]?.text ?? '';
   },
 
   async planActions(

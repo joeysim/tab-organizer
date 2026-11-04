@@ -45,3 +45,7 @@ export type ContentCacheEntry = {
 };
 
 export type ContentCache = Record<string, ContentCacheEntry>;
+
+/** One-line page summaries, keyed by URL so they survive tab id churn. */
+export type SummaryCacheEntry = { text: string; cachedAt: number };
+export type SummaryCache = Record<string, SummaryCacheEntry>;

@@ -16,6 +16,7 @@ export const STORAGE_KEYS = {
   settings: 'settings',
   collections: 'collections',
   contentCache: 'contentCache',
+  summaries: 'summaries',
   legacySessions: 'sessions',
 } as const;
 

@@ -101,7 +101,7 @@ describe('The Lab', () => {
     lab.moveLab(-5);
     expect(current()).toBe('The Lab guide…');
     lab.moveLab(99);
-    expect(current()).toBe('Save this session');
+    expect(current()).toBe('Summarize my tabs');
   });
 
   test('card reports state and clears', async () => {

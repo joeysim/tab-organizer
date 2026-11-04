@@ -1,4 +1,4 @@
-import type { Collection, Settings, ContentCache } from '../types/index.js';
+import type { Collection, Settings, ContentCache, SummaryCache } from '../types/index.js';
 import { STORAGE_KEYS, CONTENT_TTL } from '../constants/index.js';
 import { getLegacyCollections } from './migration.js';
 
@@ -120,6 +120,32 @@ export const Storage = {
       }
     }
     await chrome.storage.local.set({ [STORAGE_KEYS.contentCache]: cleaned });
+  },
+
+  /** Cached one-line summaries, expired entries dropped on read. */
+  async getSummaries(): Promise<SummaryCache> {
+    try {
+      const result = await chrome.storage.local.get([STORAGE_KEYS.summaries]);
+      const cache = ((result as Record<string, unknown>)[STORAGE_KEYS.summaries] as SummaryCache) ?? {};
+      const now = Date.now();
+      let purged = false;
+      for (const [url, entry] of Object.entries(cache)) {
+        if (!entry || now - entry.cachedAt > CONTENT_TTL) { delete cache[url]; purged = true; }
+      }
+      if (purged) { try { await chrome.storage.local.set({ [STORAGE_KEYS.summaries]: cache }); } catch {} }
+      return cache;
+    } catch {
+      return {};
+    }
+  },
+
+  async saveSummaries(cache: SummaryCache): Promise<boolean> {
+    try {
+      await chrome.storage.local.set({ [STORAGE_KEYS.summaries]: cache });
+      return true;
+    } catch {
+      return false;
+    }
   },
 
   // legacy aliases — preserved until Task 6 cutover removes lib/storage.js
